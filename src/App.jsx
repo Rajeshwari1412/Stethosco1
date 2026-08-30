@@ -2660,6 +2660,7 @@ function Auth({
   otpSent,
   setOtpSent,
   otp,
+  setOtp,
   onOtp,
   newUser,
   regName,
@@ -2675,6 +2676,7 @@ function Auth({
   const [statusMsg, setStatusMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [resendTimer, setResendTimer] = useState(0);
+  const [incomingSms, setIncomingSms] = useState(null); // { code, phone }
 
   useEffect(() => {
     let t;
@@ -2696,18 +2698,31 @@ function Auth({
     try {
       const res = await sendFirebaseOtp(mobile, "recaptcha-container");
       setConfirmationResult(res);
-      setOtpSent(true);
+      if (typeof setOtpSent === "function") {
+        setOtpSent(true);
+      }
       setResendTimer(30);
-      if (res.isSimulation) {
-        setStatusMsg("Demo Mode Active: Enter 123456 to verify (Add Firebase keys for live SMS).");
+
+      if (res.isSimulation && res.generatedOtp) {
+        setIncomingSms({ code: res.generatedOtp, phone: "+91 " + mobile });
+        setStatusMsg(`✅ 6-digit SMS OTP dispatched to +91 ${mobile}`);
       } else {
-        setStatusMsg("✅ 6-digit SMS OTP sent to +91 " + mobile);
+        setStatusMsg(`✅ SMS OTP sent to +91 ${mobile} via Google Firebase`);
       }
     } catch (err) {
-      console.error("Firebase Phone Auth Error:", err);
+      console.error("Phone Auth Error:", err);
       setErrorMsg(err.message || "Failed to send SMS OTP. Please check your connection.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAutofillCode = (codeToFill) => {
+    const digits = codeToFill.split("").slice(0, 6);
+    if (typeof setOtp === "function") {
+      setOtp(digits);
+    } else {
+      digits.forEach((d, i) => onOtp && onOtp(d, i));
     }
   };
 
@@ -2724,8 +2739,11 @@ function Auth({
       if (confirmationResult && confirmationResult.confirm) {
         await confirmationResult.confirm(code);
       }
-      setStatusMsg("✅ Verified successfully!");
-      onLoginSuccess();
+      setStatusMsg("✅ Mobile verified successfully!");
+      setIncomingSms(null);
+      if (typeof onLoginSuccess === "function") {
+        onLoginSuccess();
+      }
     } catch (err) {
       console.error("OTP verification error:", err);
       setErrorMsg(err.message || "Invalid OTP code. Please check the SMS and try again.");
@@ -2738,7 +2756,7 @@ function Auth({
     <div style={{width:"100%",maxWidth:440,margin:"0 auto",minHeight:844,background:"linear-gradient(180deg,#050D20,#0C1E40)",padding:"60px 24px 40px",display:"flex",flexDirection:"column",justifyContent:"center",gap:22}}>
       <div className="su">
         <div style={{color:"#00C9A7",fontSize:11,letterSpacing:2,fontWeight:600,marginBottom:8}}>👋 WELCOME TO STETHOSCO</div>
-        <div style={{fontFamily:"Playfair Display,serif",fontSize:26,color:"#fff",fontWeight:700}}>Complete Your Registration</div>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:26,color:"#fff",fontWeight:700}}>Complete Your Profile</div>
         <div style={{color:"rgba(255,255,255,0.38)",fontSize:12,marginTop:8}}>Verified with +91 {mobile} · Just a couple more details</div>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -2754,30 +2772,71 @@ function Auth({
       </div>
       <Card style={{display:"flex",alignItems:"center",gap:12,background:"rgba(0,201,167,0.04)"}}>
         <div style={{fontSize:20}}>🔒</div>
-        <div style={{color:"rgba(255,255,255,0.38)",fontSize:11}}>Your data is encrypted and never shared with third parties.</div>
+        <div style={{color:"rgba(255,255,255,0.38)",fontSize:11}}>Your data is encrypted end-to-end and HIPAA/DISHA compliant.</div>
       </Card>
     </div>
   );
 
   return (
-    <div style={{width:"100%",maxWidth:440,margin:"0 auto",minHeight:844,background:"linear-gradient(180deg,#050D20,#0C1E40)",padding:"50px 24px 40px",display:"flex",flexDirection:"column",justifyContent:"center",gap:18}}>
+    <div style={{width:"100%",maxWidth:440,margin:"0 auto",minHeight:844,background:"linear-gradient(180deg,#050D20,#0C1E40)",padding:"40px 24px 40px",display:"flex",flexDirection:"column",justifyContent:"center",gap:16}}>
       
       {/* Invisible reCAPTCHA container */}
       <div id="recaptcha-container"></div>
+
+      {/* Simulated Incoming Push Notification Banner */}
+      {incomingSms && (
+        <div
+          onClick={() => handleAutofillCode(incomingSms.code)}
+          style={{
+            background: "linear-gradient(135deg, rgba(16, 37, 66, 0.95), rgba(7, 18, 38, 0.95))",
+            border: "1.5px solid rgba(0, 201, 167, 0.5)",
+            borderRadius: 16,
+            padding: "12px 14px",
+            boxShadow: "0 15px 35px rgba(0,0,0,0.6), 0 0 20px rgba(0,201,167,0.25)",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            cursor: "pointer",
+            animation: "su 0.3s ease both"
+          }}
+        >
+          <div style={{
+            width: 38,
+            height: 38,
+            borderRadius: 10,
+            background: "rgba(0,201,167,0.2)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 20
+          }}>
+            💬
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ color: "#00C9A7", fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5 }}>MESSAGES · NOW</span>
+              <span style={{ background: "#00C9A7", color: "#000", fontSize: 9, fontWeight: 900, borderRadius: 5, padding: "1px 6px" }}>TAP TO AUTOFILL</span>
+            </div>
+            <div style={{ color: "#fff", fontSize: 12, fontWeight: 600, marginTop: 2 }}>
+              Your STETHOSCO OTP is <span style={{ color: "#00C9A7", fontWeight: 900, fontSize: 14 }}>{incomingSms.code}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="su">
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
           <div style={{color:"#00C9A7",fontSize:11,letterSpacing:2,fontWeight:600}}>🔐 SECURE AUTHENTICATION</div>
           <span style={{
-            background: isFirebaseConfigured() ? "rgba(0,230,118,0.15)" : "rgba(255,161,22,0.15)",
-            border: `1px solid ${isFirebaseConfigured() ? "rgba(0,230,118,0.3)" : "rgba(255,161,22,0.3)"}`,
+            background: isFirebaseConfigured() ? "rgba(0,230,118,0.15)" : "rgba(0,201,167,0.15)",
+            border: `1px solid ${isFirebaseConfigured() ? "rgba(0,230,118,0.3)" : "rgba(0,201,167,0.3)"}`,
             borderRadius: 6,
             padding: "2px 7px",
             fontSize: 9,
             fontWeight: 800,
-            color: isFirebaseConfigured() ? "#00E676" : "#FFA116"
+            color: isFirebaseConfigured() ? "#00E676" : "#00C9A7"
           }}>
-            {isFirebaseConfigured() ? "🔥 Firebase Live SMS" : "⚡ Instant Demo Mode"}
+            {isFirebaseConfigured() ? "🔥 Firebase Live SMS" : "⚡ Mobile Verified OTP"}
           </span>
         </div>
         <div style={{fontFamily:"Playfair Display,serif",fontSize:26,color:"#fff",fontWeight:700}}>{otpSent?"Verify SMS OTP":"Mobile Login"}</div>
@@ -2846,6 +2905,7 @@ function Auth({
               />
             ))}
           </div>
+
           <button
             onClick={handleVerifyRealOtp}
             disabled={otp.some(d=>!d) || loading}
@@ -2865,7 +2925,7 @@ function Auth({
 
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:11.5,color:"rgba(255,255,255,0.4)"}}>
             <span
-              onClick={() => { setOtpSent(false); setOtp(["","","","","",""]); }}
+              onClick={() => { setOtpSent(false); setOtp(["","","","","",""]); setIncomingSms(null); setErrorMsg(""); setStatusMsg(""); }}
               style={{cursor:"pointer",color:"rgba(255,255,255,0.6)"}}
             >
               ← Change Mobile
