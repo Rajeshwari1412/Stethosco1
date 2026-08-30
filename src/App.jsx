@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-
+import { sendFirebaseOtp, isFirebaseConfigured } from "./firebase";
 // ── Global nav ref (allows cross-portal navigation from HomeWidgets) ──
 let __switchRole = null;
 
@@ -2653,7 +2653,86 @@ function Welcome({onNext}) {
 }
 
 
-function Auth({mobile,setMobile,otpSent,otp,onOtp,onSend,onVerify,newUser,regName,setRegName,regEmail,setRegEmail,onRegister,onQuickDemo}) {
+function Auth({
+  mobile,
+  setMobile,
+  otpSent,
+  setOtpSent,
+  otp,
+  onOtp,
+  newUser,
+  regName,
+  setRegName,
+  regEmail,
+  setRegEmail,
+  onRegister,
+  onQuickDemo,
+  onLoginSuccess
+}) {
+  const [confirmationResult, setConfirmationResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [resendTimer, setResendTimer] = useState(0);
+
+  useEffect(() => {
+    let t;
+    if (resendTimer > 0) {
+      t = setTimeout(() => setResendTimer(p => p - 1), 1000);
+    }
+    return () => clearTimeout(t);
+  }, [resendTimer]);
+
+  const handleSendRealOtp = async () => {
+    if (mobile.length !== 10) {
+      setErrorMsg("Please enter a valid 10-digit mobile number.");
+      return;
+    }
+    setLoading(true);
+    setErrorMsg("");
+    setStatusMsg("Connecting to carrier network...");
+
+    try {
+      const res = await sendFirebaseOtp(mobile, "recaptcha-container");
+      setConfirmationResult(res);
+      setOtpSent(true);
+      setResendTimer(30);
+      if (res.isSimulation) {
+        setStatusMsg("Demo Mode Active: Enter 123456 to verify (Add Firebase keys for live SMS).");
+      } else {
+        setStatusMsg("✅ 6-digit SMS OTP sent to +91 " + mobile);
+      }
+    } catch (err) {
+      console.error("Firebase Phone Auth Error:", err);
+      setErrorMsg(err.message || "Failed to send SMS OTP. Please check your connection.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyRealOtp = async () => {
+    const code = otp.join("");
+    if (code.length !== 6) {
+      setErrorMsg("Please enter all 6 digits of the OTP.");
+      return;
+    }
+    setLoading(true);
+    setErrorMsg("");
+
+    try {
+      if (confirmationResult && confirmationResult.confirm) {
+        await confirmationResult.confirm(code);
+      }
+      setStatusMsg("✅ Verified successfully!");
+      onLoginSuccess();
+    } catch (err) {
+      console.error("OTP verification error:", err);
+      setErrorMsg(err.message || "Invalid OTP code. Please check the SMS and try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if(newUser) return (
     <div style={{width:"100%",maxWidth:440,margin:"0 auto",minHeight:844,background:"linear-gradient(180deg,#050D20,#0C1E40)",padding:"60px 24px 40px",display:"flex",flexDirection:"column",justifyContent:"center",gap:22}}>
       <div className="su">
@@ -2680,31 +2759,122 @@ function Auth({mobile,setMobile,otpSent,otp,onOtp,onSend,onVerify,newUser,regNam
   );
 
   return (
-    <div style={{width:"100%",maxWidth:440,margin:"0 auto",minHeight:844,background:"linear-gradient(180deg,#050D20,#0C1E40)",padding:"50px 24px 40px",display:"flex",flexDirection:"column",justifyContent:"center",gap:20}}>
+    <div style={{width:"100%",maxWidth:440,margin:"0 auto",minHeight:844,background:"linear-gradient(180deg,#050D20,#0C1E40)",padding:"50px 24px 40px",display:"flex",flexDirection:"column",justifyContent:"center",gap:18}}>
+      
+      {/* Invisible reCAPTCHA container */}
+      <div id="recaptcha-container"></div>
+
       <div className="su">
-        <div style={{color:"#00C9A7",fontSize:11,letterSpacing:2,fontWeight:600,marginBottom:6}}>🔐 SECURE LOGIN</div>
-        <div style={{fontFamily:"Playfair Display,serif",fontSize:26,color:"#fff",fontWeight:700}}>{otpSent?"Verify OTP":"Enter Mobile"}</div>
-        <div style={{color:"rgba(255,255,255,0.38)",fontSize:12,marginTop:4}}>{otpSent?`OTP sent to +91 ${mobile}`:"We'll send a 6-digit OTP"}</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+          <div style={{color:"#00C9A7",fontSize:11,letterSpacing:2,fontWeight:600}}>🔐 SECURE AUTHENTICATION</div>
+          <span style={{
+            background: isFirebaseConfigured() ? "rgba(0,230,118,0.15)" : "rgba(255,161,22,0.15)",
+            border: `1px solid ${isFirebaseConfigured() ? "rgba(0,230,118,0.3)" : "rgba(255,161,22,0.3)"}`,
+            borderRadius: 6,
+            padding: "2px 7px",
+            fontSize: 9,
+            fontWeight: 800,
+            color: isFirebaseConfigured() ? "#00E676" : "#FFA116"
+          }}>
+            {isFirebaseConfigured() ? "🔥 Firebase Live SMS" : "⚡ Instant Demo Mode"}
+          </span>
+        </div>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:26,color:"#fff",fontWeight:700}}>{otpSent?"Verify SMS OTP":"Mobile Login"}</div>
+        <div style={{color:"rgba(255,255,255,0.42)",fontSize:12,marginTop:4}}>{otpSent?`Enter the 6-digit code sent to +91 ${mobile}`:"Enter your 10-digit number to receive a secure SMS OTP"}</div>
       </div>
+
+      {statusMsg && (
+        <div style={{background:"rgba(0,201,167,0.1)",border:"1px solid rgba(0,201,167,0.25)",borderRadius:10,padding:"9px 12px",fontSize:11.5,color:"#00C9A7"}}>
+          {statusMsg}
+        </div>
+      )}
+
+      {errorMsg && (
+        <div style={{background:"rgba(255,71,87,0.1)",border:"1px solid rgba(255,71,87,0.3)",borderRadius:10,padding:"9px 12px",fontSize:11.5,color:"#FF4757"}}>
+          ⚠️ {errorMsg}
+        </div>
+      )}
 
       {!otpSent ? (
         <div style={{display:"flex",flexDirection:"column",gap:12}}>
           <div style={{background:"rgba(255,255,255,0.05)",border:"1.5px solid rgba(0,201,167,0.3)",borderRadius:13,display:"flex",alignItems:"center"}}>
             <div style={{padding:"12px 14px",color:"#00C9A7",fontWeight:700,fontSize:13,borderRight:"1px solid rgba(0,201,167,0.2)",marginRight:8}}>🇮🇳 +91</div>
-            <input value={mobile} onChange={e=>setMobile(e.target.value.replace(/\D/g,"").slice(0,10))} type="tel" placeholder="10-digit mobile number" style={{flex:1,background:"transparent",border:"none",color:"#fff",fontSize:15,padding:"13px 8px"}}/>
+            <input
+              value={mobile}
+              onChange={e=>setMobile(e.target.value.replace(/\D/g,"").slice(0,10))}
+              type="tel"
+              placeholder="10-digit mobile number"
+              disabled={loading}
+              style={{flex:1,background:"transparent",border:"none",color:"#fff",fontSize:15,padding:"13px 8px"}}
+            />
           </div>
-          <button onClick={onSend} style={{padding:"13px",background:mobile.length===10?"linear-gradient(135deg,#0066CC,#00C9A7)":"rgba(255,255,255,0.07)",border:"none",borderRadius:12,color:mobile.length===10?"#fff":"rgba(255,255,255,0.25)",fontSize:15,fontWeight:700,cursor:"pointer"}}>Send OTP →</button>
+          <button
+            onClick={handleSendRealOtp}
+            disabled={mobile.length !== 10 || loading}
+            style={{
+              padding:"13px",
+              background: mobile.length===10 && !loading ?"linear-gradient(135deg,#0066CC,#00C9A7)":"rgba(255,255,255,0.07)",
+              border:"none",
+              borderRadius:12,
+              color: mobile.length===10 && !loading ?"#fff":"rgba(255,255,255,0.25)",
+              fontSize:15,
+              fontWeight:700,
+              cursor: mobile.length===10 && !loading ?"pointer":"not-allowed",
+              display:"flex",
+              alignItems:"center",
+              justifyContent:"center",
+              gap:8
+            }}
+          >
+            {loading ? "Sending SMS..." : "Send SMS OTP →"}
+          </button>
         </div>
       ) : (
-        <div style={{display:"flex",flexDirection:"column",gap:18}}>
+        <div style={{display:"flex",flexDirection:"column",gap:16}}>
           <div style={{display:"flex",gap:7,justifyContent:"center"}}>
             {otp.map((d,i)=>(
-              <input key={i} id={"o"+i} value={d} onChange={e=>onOtp(e.target.value,i)} maxLength={1} type="tel"
-                style={{width:44,height:50,background:d?"rgba(0,201,167,0.14)":"rgba(255,255,255,0.05)",border:`1.5px solid ${d?"#00C9A7":"rgba(255,255,255,0.1)"}`,borderRadius:11,textAlign:"center",color:"#fff",fontSize:20,fontWeight:700,transition:"all .2s"}}/>
+              <input
+                key={i}
+                id={"o"+i}
+                value={d}
+                onChange={e=>onOtp(e.target.value,i)}
+                maxLength={1}
+                type="tel"
+                disabled={loading}
+                style={{width:44,height:50,background:d?"rgba(0,201,167,0.14)":"rgba(255,255,255,0.05)",border:`1.5px solid ${d?"#00C9A7":"rgba(255,255,255,0.1)"}`,borderRadius:11,textAlign:"center",color:"#fff",fontSize:20,fontWeight:700,transition:"all .2s"}}
+              />
             ))}
           </div>
-          <button onClick={onVerify} disabled={otp.some(d=>!d)} style={{padding:"13px",background:otp.every(d=>d)?"linear-gradient(135deg,#0066CC,#00C9A7)":"rgba(255,255,255,0.07)",border:"none",borderRadius:12,color:otp.every(d=>d)?"#fff":"rgba(255,255,255,0.25)",fontSize:15,fontWeight:700,cursor:otp.every(d=>d)?"pointer":"not-allowed"}}>{otp.every(d=>d)?"Verify & Enter →":`Enter all 6 digits (${otp.filter(d=>d).length}/6)`}</button>
-          <div style={{textAlign:"center",color:"rgba(255,255,255,0.32)",fontSize:11.5}}>Didn't receive? <span onClick={() => onOtp("123456".split(""), 0)} style={{color:"#00C9A7",cursor:"pointer"}}>Autofill (123456)</span></div>
+          <button
+            onClick={handleVerifyRealOtp}
+            disabled={otp.some(d=>!d) || loading}
+            style={{
+              padding:"13px",
+              background: otp.every(d=>d) && !loading ?"linear-gradient(135deg,#0066CC,#00C9A7)":"rgba(255,255,255,0.07)",
+              border:"none",
+              borderRadius:12,
+              color: otp.every(d=>d) && !loading ?"#fff":"rgba(255,255,255,0.25)",
+              fontSize:15,
+              fontWeight:700,
+              cursor: otp.every(d=>d) && !loading ?"pointer":"not-allowed"
+            }}
+          >
+            {loading ? "Verifying..." : "Verify & Sign In →"}
+          </button>
+
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:11.5,color:"rgba(255,255,255,0.4)"}}>
+            <span
+              onClick={() => { setOtpSent(false); setOtp(["","","","","",""]); }}
+              style={{cursor:"pointer",color:"rgba(255,255,255,0.6)"}}
+            >
+              ← Change Mobile
+            </span>
+            {resendTimer > 0 ? (
+              <span>Resend OTP in {resendTimer}s</span>
+            ) : (
+              <span onClick={handleSendRealOtp} style={{color:"#00C9A7",cursor:"pointer",fontWeight:600}}>Resend SMS OTP</span>
+            )}
+          </div>
         </div>
       )}
 
@@ -2716,8 +2886,8 @@ function Auth({mobile,setMobile,otpSent,otp,onOtp,onSend,onVerify,newUser,regNam
         padding: "14px 14px 12px"
       }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <span style={{ color: "#00C9A7", fontSize: 10, fontWeight: 800, letterSpacing: 1 }}>⚡ 1-CLICK INSTANT DEMO ACCESS</span>
-          <span style={{ fontSize: 9.5, color: "rgba(255,255,255,0.4)" }}>No OTP required</span>
+          <span style={{ color: "#00C9A7", fontSize: 10, fontWeight: 800, letterSpacing: 1 }}>⚡ 1-CLICK DEMO TEST ACCOUNTS</span>
+          <span style={{ fontSize: 9.5, color: "rgba(255,255,255,0.4)" }}>Fast access</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
           {[
@@ -2758,12 +2928,11 @@ function Auth({mobile,setMobile,otpSent,otp,onOtp,onSend,onVerify,newUser,regNam
 
       <Card style={{display:"flex",alignItems:"center",gap:12,background:"rgba(0,201,167,0.04)"}}>
         <div style={{fontSize:18}}>🔒</div>
-        <div style={{color:"rgba(255,255,255,0.38)",fontSize:10.5}}>Your data is encrypted end-to-end and HIPAA/DISHA compliant.</div>
+        <div style={{color:"rgba(255,255,255,0.38)",fontSize:10.5}}>Protected by Google Firebase Phone Authentication & End-to-End Encryption.</div>
       </Card>
     </div>
   );
 }
-
 // ══════════════════════════════════════════════════════════════════════
 // 🏠 PORTAL SHOWCASE HOME — All 20 Portals · Comprehensive Merged (v28)
 // ══════════════════════════════════════════════════════════════════════
