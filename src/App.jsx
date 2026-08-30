@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { sendFirebaseOtp, isFirebaseConfigured } from "./firebase";
+import { useState, useEffect, useMemo, useCallback, Component, Fragment } from "react";
+
 // ── Global nav ref (allows cross-portal navigation from HomeWidgets) ──
 let __switchRole = null;
 
@@ -500,7 +500,8 @@ const NEET_CATEGORIES = ["General","OBC","SC","ST","EWS","PwD"];
 // dataset, not a literal 1:1 mirror of all ~816 colleges.
 const NEET_NATIONAL_STATS = {
   totalCollegesUG: 816, totalSeatsUG: 118190, govtCollegesUG: 434, govtSeatsUG: 55880,
-  totalSeatsPG: 67000, asOf: "2025–26 NMC/MCC reporting",
+  totalCollegesPG: 751, totalSeatsPG: 67000, govtCollegesPG: 328, govtSeatsPG: 34200,
+  asOf: "2025–26 NMC/MCC reporting",
 };
 const NEET_PG_SCORE_BANDS = [
   {min:750,max:800,rankLo:1,rankHi:150,percentile:99.99},
@@ -530,6 +531,58 @@ const QUALIFICATIONS=["MBBS","MD","MS","MCh","DM","DNB","FRCS","MRCP","PhD (Medi
 const SPECIALTIES=["Cardiology","Neurology","Oncology","Orthopaedics","Gynaecology","Paediatrics","Dermatology","Ophthalmology","ENT","Gastroenterology","Nephrology","Urology","Pulmonology","Endocrinology","Psychiatry","Radiology","Pathology","Anaesthesia","Emergency Medicine","General Surgery","Plastic Surgery","Neonatology","Rheumatology","Haematology","Sports Medicine","Dentistry","Diabetology","Infectious Disease"];
 const DEPT_LIST = ["Cardiology","Neurology","Oncology","Orthopaedics","Gynaecology & Obs","Paediatrics","Dermatology","Ophthalmology","ENT","Gastroenterology","Nephrology","Urology","Pulmonology","Endocrinology","Psychiatry","Radiology","Pathology","Anaesthesia","Emergency Medicine","General Surgery","Plastic Surgery","Neonatology","Rheumatology","Haematology","ICU","NICU","Dental","Physiotherapy","Dietetics","Dialysis"];
 const JOB_BENEFITS_LIST = ["Housing Allowance","Relocation Allowance","Medical Insurance","Vehicle / Car","Performance Bonus","Research Grant","Provident Fund","Gratuity","Paid Leave","CME Sponsorship","School Fee Reimbursement","Internet / Phone Allowance","Canteen Subsidy","Uniform Allowance"];
+// ── i18n — core navigation & chrome available in 5 major Indian languages ──
+// Scope note: translates app-wide navigation labels, headers, and Settings —
+// not every string in every portal's deep content (that remains English-only
+// in this pass; see Settings → Language for what's covered).
+const I18N={
+  "Home":{hi:"होम",te:"హోమ్",ta:"முகப்பு",bn:"হোম"},"Schedule":{hi:"शेड्यूल",te:"షెడ్యూల్",ta:"அட்டவணை",bn:"সময়সূচী"},
+  "Earnings":{hi:"कमाई",te:"ఆదాయం",ta:"வருமானம்",bn:"আয়"},"AI Jobs":{hi:"AI नौकरियां",te:"AI ఉద్యోగాలు",ta:"AI வேலைகள்",bn:"AI চাকরি"},
+  "Profile":{hi:"प्रोफ़ाइल",te:"ప్రొఫైల్",ta:"சுயவிவரம்",bn:"প্রোফাইল"},"Share Profile":{hi:"प्रोफ़ाइल साझा करें",te:"ప్రొఫైల్ షేర్ చేయండి",ta:"சுயவிவரத்தைப் பகிரவும்",bn:"প্রোফাইল শেয়ার করুন"},
+  "Nearby":{hi:"आस-पास",te:"సమీపంలో",ta:"அருகில்",bn:"কাছাকাছি"},"Verify":{hi:"सत्यापित करें",te:"ధృవీకరించండి",ta:"சரிபார்க்கவும்",bn:"যাচাই করুন"},
+  "Post Jobs":{hi:"नौकरी पोस्ट करें",te:"ఉద్యోగం పోస్ట్ చేయండి",ta:"வேலை பதிவிடவும்",bn:"চাকরি পোস্ট করুন"},"View Jobs":{hi:"नौकरियां देखें",te:"ఉద్యోగాలు చూడండి",ta:"வேலைகளைப் பார்க்கவும்",bn:"চাকরি দেখুন"},
+  "Test List":{hi:"टेस्ट सूची",te:"టెస్ట్ జాబితా",ta:"சோதனை பட்டியல்",bn:"টেস্ট তালিকা"},"My Tests":{hi:"मेरे टेस्ट",te:"నా టెస్ట్‌లు",ta:"எனது சோதனைகள்",bn:"আমার টেস্ট"},
+  "Cart":{hi:"कार्ट",te:"కార్ట్",ta:"கார்ட்",bn:"কার্ট"},"Register":{hi:"पंजीकरण करें",te:"నమోదు చేయండి",ta:"பதிவு செய்யவும்",bn:"নিবন্ধন করুন"},
+  "Catalogue":{hi:"सूची",te:"కేటలాగ్",ta:"பட்டியல்",bn:"ক্যাটালগ"},"My Products":{hi:"मेरे उत्पाद",te:"నా ఉత్పత్తులు",ta:"எனது தயாரிப்புகள்",bn:"আমার পণ্য"},
+  "AI Check":{hi:"AI जांच",te:"AI చెక్",ta:"AI சரிபார்ப்பு",bn:"AI চেক"},"Health":{hi:"स्वास्थ्य",te:"ఆరోగ్యం",ta:"சுகாதாரம்",bn:"স্বাস্থ্য"},
+  "Insurance":{hi:"बीमा",te:"బీమా",ta:"காப்பீடு",bn:"বীমা"},"Book":{hi:"बुक करें",te:"బుక్ చేయండి",ta:"முன்பதிவு",bn:"বুক করুন"},
+  "Premium":{hi:"प्रीमियम",te:"ప్రీమియం",ta:"பிரீமியம்",bn:"প্রিমিয়াম"},"Hospitals":{hi:"अस्पताल",te:"ఆసుపత్రులు",ta:"மருத்துவமனைகள்",bn:"হাসপাতাল"},
+  "Packages":{hi:"पैकेज",te:"ప్యాకేజీలు",ta:"தொகுப்புகள்",bn:"প্যাকেজ"},"Process":{hi:"प्रक्रिया",te:"ప్రక్రియ",ta:"செயல்முறை",bn:"প্রক্রিয়া"},
+  "Visa":{hi:"वीज़ा",te:"వీసా",ta:"விசா",bn:"ভিসা"},"Students":{hi:"छात्र",te:"విద్యార్థులు",ta:"மாணவர்கள்",bn:"ছাত্রছাত্রী"},
+  "Donate":{hi:"दान करें",te:"దానం చేయండి",ta:"நன்கொடை",bn:"দান করুন"},"Impact":{hi:"प्रभाव",te:"ప్రభావం",ta:"தாக்கம்",bn:"প্রভাব"},
+  "Institutes":{hi:"संस्थान",te:"సంస్థలు",ta:"நிறுவனங்கள்",bn:"প্রতিষ্ঠান"},"Research":{hi:"अनुसंधान",te:"పరిశోధన",ta:"ஆராய்ச்சி",bn:"গবেষণা"},
+  "Events":{hi:"आयोजन",te:"ఈవెంట్‌లు",ta:"நிகழ்வுகள்",bn:"ইভেন্ট"},"My Institute":{hi:"मेरा संस्थान",te:"నా సంస్థ",ta:"எனது நிறுவனம்",bn:"আমার প্রতিষ্ঠান"},
+  "Alerts":{hi:"सूचनाएं",te:"హెచ్చరికలు",ta:"எச்சரிக்கைகள்",bn:"সতর্কতা"},"Find Donor":{hi:"दाता खोजें",te:"దాతను కనుగొనండి",ta:"நன்கொடையாளரைக் கண்டறியவும்",bn:"দাতা খুঁজুন"},
+  "Be Donor":{hi:"दाता बनें",te:"దాతగా మారండి",ta:"நன்கொடையாளராகுங்கள்",bn:"দাতা হন"},"Banks":{hi:"ब्लड बैंक",te:"బ్యాంకులు",ta:"வங்கிகள்",bn:"ব্যাংক"},
+  "Urgent":{hi:"अत्यावश्यक",te:"అత్యవసరం",ta:"அவசரம்",bn:"জরুরি"},"Activity":{hi:"गतिविधि",te:"కార్యాచరణ",ta:"செயல்பாடு",bn:"কার্যকলাপ"},
+  "Vitals":{hi:"वाइटल्स",te:"వైటల్స్",ta:"உயிர்ச்சக்திகள்",bn:"ভাইটালস"},"Nutrition":{hi:"पोषण",te:"పోషణ",ta:"ஊட்டச்சத்து",bn:"পুষ্টি"},
+  "History":{hi:"इतिहास",te:"చరిత్ర",ta:"வரலாறு",bn:"ইতিহাস"},"Overview":{hi:"अवलोकन",te:"అవలోకనం",ta:"கண்ணோட்டம்",bn:"সংক্ষিপ্ত বিবরণ"},
+  "Revenue":{hi:"राजस्व",te:"ఆదాయం",ta:"வருவாய்",bn:"রাজস্ব"},"Blocklist":{hi:"ब्लॉकलिस्ट",te:"బ్లాక్‌లిస్ట్",ta:"தடைப்பட்டியல்",bn:"ব্লকলিস্ট"},
+  "Analytics":{hi:"विश्लेषण",te:"విశ్లేషణలు",ta:"பகுப்பாய்வு",bn:"বিশ্লেষণ"},"Post Job":{hi:"नौकरी पोस्ट करें",te:"ఉద్యోగం పోస్ట్ చేయండి",ta:"வேலை பதிவிடவும்",bn:"চাকরি পোস্ট করুন"},
+  "Apps":{hi:"आवेदन",te:"దరఖాస్తులు",ta:"விண்ணப்பங்கள்",bn:"আবেদন"},"Boost":{hi:"बूस्ट",te:"బూస్ట్",ta:"மேம்படுத்து",bn:"বুস্ট"},
+  "Internships":{hi:"इंटर्नशिप",te:"ఇంటర్న్‌షిప్‌లు",ta:"பயிற்சிப் பணிகள்",bn:"ইন্টার্নশিপ"},"Applied":{hi:"आवेदित",te:"దరఖాస్తు చేసినవి",ta:"விண்ணப்பிக்கப்பட்டவை",bn:"আবেদনকৃত"},
+  "Colleges":{hi:"कॉलेज",te:"కళాశాలలు",ta:"கல்லூரிகள்",bn:"কলেজ"},"Institute":{hi:"संस्थान",te:"సంస్థ",ta:"நிறுவனம்",bn:"প্রতিষ্ঠান"},
+  "Browse":{hi:"ब्राउज़ करें",te:"బ్రౌజ్ చేయండి",ta:"உலாவு",bn:"ব্রাউজ করুন"},"My Listings":{hi:"मेरी लिस्टिंग",te:"నా జాబితాలు",ta:"எனது பட்டியல்கள்",bn:"আমার তালিকা"},
+  "Sell / List":{hi:"बेचें / सूचीबद्ध करें",te:"అమ్మండి / జాబితా",ta:"விற்க / பட்டியலிடு",bn:"বিক্রি / তালিকা"},"Predictor":{hi:"प्रेडिक्टर",te:"ప్రిడిక్టర్",ta:"முன்கணிப்பான்",bn:"প্রেডিক্টর"},
+  "My Matches":{hi:"मेरे मैच",te:"నా మ్యాచ్‌లు",ta:"எனது பொருத்தங்கள்",bn:"আমার মিল"},"All Colleges":{hi:"सभी कॉलेज",te:"అన్ని కళాశాలలు",ta:"அனைத்து கல்லூரிகள்",bn:"সকল কলেজ"},
+  "How It Works":{hi:"यह कैसे काम करता है",te:"ఇది ఎలా పనిచేస్తుంది",ta:"இது எப்படி வேலை செய்கிறது",bn:"এটি কীভাবে কাজ করে"},"Pledge":{hi:"संकल्प",te:"ప్రతిజ్ఞ",ta:"உறுதிமொழி",bn:"অঙ্গীকার"},
+  "Recipient":{hi:"प्राप्तकर्ता",te:"స్వీకర్త",ta:"பெறுநர்",bn:"প্রাপক"},"Emergency":{hi:"आपातकाल",te:"అత్యవసర పరిస్థితి",ta:"அவசரநிலை",bn:"জরুরি অবস্থা"},
+  "Laws":{hi:"कानून",te:"చట్టాలు",ta:"சட்டங்கள்",bn:"আইন"},"Trending":{hi:"ट्रेंडिंग",te:"ట్రెండింగ్",ta:"டிரெண்டிங்",bn:"ট্রেন্ডিং"},
+  "Categories":{hi:"श्रेणियां",te:"వర్గాలు",ta:"வகைகள்",bn:"বিভাগ"},"Subscribed":{hi:"सब्सक्राइब्ड",te:"సబ్‌స్క్రైబ్డ్",ta:"குழுசேர்ந்தவை",bn:"সাবস্ক্রাইবড"},
+  "Hospital":{hi:"अस्पताल",te:"ఆసుపత్రి",ta:"மருத்துவமனை",bn:"হাসপাতাল"},"Corporate":{hi:"कॉर्पोरेट",te:"కార్పొరేట్",ta:"பெருநிறுவனம்",bn:"কর্পোরেট"},
+  "Individual":{hi:"व्यक्तिगत",te:"వ్యక్తిగత",ta:"தனிநபர்",bn:"ব্যক্তিগত"},"Compare":{hi:"तुलना करें",te:"పోల్చండి",ta:"ஒப்பிடு",bn:"তুলনা করুন"},
+  "Aggregators":{hi:"एग्रीगेटर",te:"అగ్రిగేటర్లు",ta:"திரட்டிகள்",bn:"অ্যাগ্রিগেটর"},
+  "Settings & Account":{hi:"सेटिंग्स और खाता",te:"సెట్టింగ్‌లు & ఖాతా",ta:"அமைப்புகள் & கணக்கு",bn:"সেটিংস ও অ্যাকাউন্ট"},
+  "Notification Preferences":{hi:"सूचना प्राथमिकताएं",te:"నోటిఫికేషన్ ప్రాధాన్యతలు",ta:"அறிவிப்பு விருப்பங்கள்",bn:"বিজ্ঞপ্তি পছন্দ"},
+  "Privacy & Consent":{hi:"गोपनीयता और सहमति",te:"గోప్యత & సమ్మతి",ta:"தனியுரிமை & ஒப்புதல்",bn:"গোপনীয়তা ও সম্মতি"},
+  "Language":{hi:"भाषा",te:"భాష",ta:"மொழி",bn:"ভাষা"},
+  "Help & Support":{hi:"सहायता और समर्थन",te:"సహాయం & మద్దతు",ta:"உதவி & ஆதரவு",bn:"সহায়তা ও সমর্থন"},
+  "Legal":{hi:"कानूनी",te:"చట్టపరమైన",ta:"சட்டப்பூர்வ",bn:"আইনি"},
+  "Log Out":{hi:"लॉग आउट",te:"లాగ్ అవుట్",ta:"வெளியேறு",bn:"লগ আউট"},
+};
+function translate(lang){ return key => (lang!=="en" && I18N[key]?.[lang]) || key; }
+const APP_LANGUAGES=[{code:"en",native:"English"},{code:"hi",native:"हिंदी"},{code:"te",native:"తెలుగు"},{code:"ta",native:"தமிழ்"},{code:"bn",native:"বাংলা"}];
+
 const ROLES=[
   {id:"doctor",     label:"Doctor",                   icon:"🩺", color:"#0066CC", desc:"MBBS & Higher Qualified Physicians · AI Job Matching · Verify"},
   {id:"medical",    label:"Medicos",                   icon:"🩻", color:"#00897B", desc:"Nurses, Technicians & Allied Health · Photo Profile · Share"},
@@ -866,7 +919,7 @@ Open to Relocation: Yes`;
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",
+          model:"claude-sonnet-4-6",
           max_tokens:1000,
           system:"You are a medical career AI. Analyze a doctor's profile against job listings and return ONLY valid JSON with this exact format: {\"matches\":[{\"jobId\":\"id\",\"score\":85,\"reason\":\"Short reason max 12 words\",\"highlight\":\"Best matching point in 8 words\"}]}. Score 0-100. Sort descending. Return top 6 matches.",
           messages:[{role:"user",content:`Profile:\n${profileText}\n\nJobs:\n${jobList}\n\nReturn JSON only, no markdown.`}]
@@ -1131,6 +1184,8 @@ function JobBoardSeeker({profile}){
   const [typeF,setTypeF]=useState("all");
   const [deptF,setDeptF]=useState("all");
   const [notifCount,setNotifCount]=useState(NOTIFICATIONS_DB.filter(n=>!n.read).length);
+  const [savedJobs,setSavedJobs]=useState([]);
+  const toggleSaved=(jobId)=>setSavedJobs(s=>s.includes(jobId)?s.filter(id=>id!==jobId):[...s,jobId]);
   
   const refCount=()=>setNotifCount(NOTIFICATIONS_DB.filter(n=>!n.read).length);
   
@@ -1147,7 +1202,7 @@ function JobBoardSeeker({profile}){
     <div style={{textAlign:"center",padding:"40px 20px"}}>
       <div style={{fontSize:56,marginBottom:12,animation:"hb 1.5s ease infinite"}}>🎉</div>
       <div style={{color:"#00C9A7",fontWeight:900,fontSize:20,fontFamily:"Playfair Display,serif",marginBottom:8}}>Application Submitted!</div>
-      <div style={{color:"rgba(255,255,255,0.45)",fontSize:12,lineHeight:1.7,marginBottom:20}}>{selJob?.employer} will review your profile.<br/>You'll hear back within 5–7 working days.</div>
+      <div style={{color:"rgba(255,255,255,0.45)",fontSize:12,lineHeight:1.7,marginBottom:20}}>{selJob?.employer} will review your profile.<br/>You will hear back within 5–7 working days.</div>
       <div style={{display:"flex",flexDirection:"column",gap:9}}>
         <Btn onClick={()=>setSubView("applied")} style={{background:"linear-gradient(135deg,#00C9A7,#0066CC)"}}>📋 Track Application</Btn>
         <Btn secondary onClick={()=>{setSelJob(null);setSubView("board");}}>Browse More Jobs</Btn>
@@ -1204,12 +1259,32 @@ function JobBoardSeeker({profile}){
           <div style={{color:"#fff",fontWeight:700,fontSize:12}}>Onboarding</div>
           <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,marginTop:1}}>Notice & joining</div>
         </div>
-        <div style={{background:"rgba(255,255,255,0.03)",border:"1.5px solid rgba(255,255,255,0.08)",borderRadius:14,padding:13,cursor:"pointer"}}>
+        <div onClick={()=>setSubView("saved")} style={{background:"rgba(255,255,255,0.03)",border:"1.5px solid rgba(255,255,255,0.08)",borderRadius:14,padding:13,cursor:"pointer"}}>
           <div style={{fontSize:22,marginBottom:5}}>💾</div>
           <div style={{color:"#fff",fontWeight:700,fontSize:12}}>Saved Jobs</div>
-          <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,marginTop:1}}>3 saved</div>
+          <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,marginTop:1}}>{savedJobs.length} saved</div>
         </div>
       </div>
+      {subView==="saved"&&(
+        <div style={{marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+            <BackBtn onClick={()=>setSubView("board")}/>
+            <div style={{color:"#fff",fontWeight:800,fontSize:14}}>💾 Saved Jobs</div>
+          </div>
+          {savedJobs.length===0&&<Card style={{textAlign:"center",padding:"24px 16px"}}><div style={{fontSize:28,marginBottom:8}}>📭</div><div style={{color:"rgba(255,255,255,0.4)",fontSize:11}}>No saved jobs yet — tap the bookmark on any listing</div></Card>}
+          {JOBS_DB_NEW.filter(j=>savedJobs.includes(j.id)).map(j=>(
+            <Card key={j.id} onClick={()=>{setSelJob(j);setSubView("detail");}} style={{cursor:"pointer",marginBottom:9}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <div style={{flex:1}}>
+                  <div style={{color:"#fff",fontWeight:700,fontSize:12.5}}>{j.title}</div>
+                  <div style={{color:"rgba(255,255,255,0.4)",fontSize:10.5,marginTop:2}}>{j.employer} · {j.city}</div>
+                </div>
+                <div onClick={e=>{e.stopPropagation();toggleSaved(j.id);}} style={{color:"#F4A012",fontSize:16,cursor:"pointer"}}>🔖</div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
       {/* Search & filters */}
       <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:13,padding:"10px 12px",marginBottom:10}}>
         <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="🔍 Search jobs, employers, skills…" style={{width:"100%",background:"transparent",border:"none",color:"rgba(255,255,255,0.8)",fontSize:12,fontFamily:"Outfit,sans-serif"}}/>
@@ -1220,7 +1295,10 @@ function JobBoardSeeker({profile}){
         ))}
       </div>
       <div style={{color:"rgba(255,255,255,0.3)",fontSize:10,marginBottom:10}}>{filtered.length} jobs available</div>
-      {filtered.map((job,i)=><div key={job.id} className="su" style={{animationDelay:`${i*.04}s`}} onClick={()=>{setSelJob(job);setSubView("detail");}}><JobCard job={job} showMatch={job.matchScore>0}/></div>)}
+      {filtered.map((job,i)=><div key={job.id} className="su" style={{animationDelay:`${i*.04}s`,position:"relative"}}>
+        <div onClick={()=>{setSelJob(job);setSubView("detail");}}><JobCard job={job} showMatch={job.matchScore>0}/></div>
+        <div onClick={e=>{e.stopPropagation();toggleSaved(job.id);}} style={{position:"absolute",top:10,right:10,fontSize:17,cursor:"pointer",color:savedJobs.includes(job.id)?"#F4A012":"rgba(255,255,255,0.25)",zIndex:5}}>🔖</div>
+      </div>)}
     </div>
   );
 }
@@ -1477,7 +1555,15 @@ function VInp({label,value,onChange,placeholder,type="text",opts,rows,req,sm}){
   return <div style={{marginBottom:sm?8:12}}>{label&&<div style={{color:"rgba(255,255,255,0.4)",fontSize:10,fontWeight:700,marginBottom:4}}>{label}{req&&<span style={{color:"#FF4757",marginLeft:3}}>*</span>}</div>}{opts?<select value={value} onChange={e=>onChange(e.target.value)} style={{...fStyle}}>{opts.map(o=><option key={o} value={o} style={{background:"#0D1B30"}}>{o}</option>)}</select>:rows?<textarea value={value} onChange={e=>onChange(e.target.value)} rows={rows} placeholder={placeholder} style={{...fStyle,resize:"vertical"}}/>:<input type={type} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={fStyle}/>}</div>;
 }
 function VStepBar({total,cur,color}){return <div style={{display:"flex",alignItems:"center",marginBottom:18}}>{Array.from({length:total},(_,i)=><div key={i} style={{display:"flex",alignItems:"center",flex:1}}><div style={{display:"flex",flexDirection:"column",alignItems:"center",flex:1}}><div style={{width:26,height:26,borderRadius:"50%",background:i<cur?"#00C9A7":i===cur?color:"rgba(255,255,255,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,color:"#fff",fontWeight:900}}>{i<cur?"✓":i+1}</div></div>{i<total-1&&<div style={{height:2,flex:.6,margin:"0 2px",marginBottom:16,background:i<cur?"#00C9A7":"rgba(255,255,255,0.07)"}}/>}</div>)}</div>;}
-function VUpBox(){return <div style={{background:"rgba(255,255,255,0.02)",border:"2px dashed rgba(255,255,255,0.1)",borderRadius:12,padding:12,textAlign:"center",cursor:"pointer",marginBottom:12}}><div style={{fontSize:20,marginBottom:3}}>📤</div><div style={{color:"rgba(255,255,255,0.4)",fontSize:11}}>Upload Documents · PDF / JPG / PNG</div></div>;}
+function VUpBox(){
+  const [uploaded,setUploaded]=useState(false);
+  return (
+    <div onClick={()=>setUploaded(true)} style={{background:uploaded?"rgba(0,201,167,0.06)":"rgba(255,255,255,0.02)",border:uploaded?"2px solid rgba(0,201,167,0.35)":"2px dashed rgba(255,255,255,0.1)",borderRadius:12,padding:12,textAlign:"center",cursor:"pointer",marginBottom:12}}>
+      <div style={{fontSize:20,marginBottom:3}}>{uploaded?"✅":"📤"}</div>
+      <div style={{color:uploaded?"#00C9A7":"rgba(255,255,255,0.4)",fontSize:11,fontWeight:uploaded?700:400}}>{uploaded?"Document selected — tap to change":"Upload Documents · PDF / JPG / PNG"}</div>
+    </div>
+  );
+}
 
 // ══════════════════════════════════════════════════════
 // SHARED: VENDOR DETAIL VIEW
@@ -1726,8 +1812,8 @@ function SkillBar({label,pct,color="#00C9A7"}) {
   );
 }
 
-function Card({children,style={}}) {
-  return <div style={{background:"rgba(255,255,255,0.035)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:16,padding:14,backdropFilter:"blur(10px)",...style}}>{children}</div>;
+function Card({children,style={},onClick}) {
+  return <div onClick={onClick} style={{background:"rgba(255,255,255,0.035)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:16,padding:14,backdropFilter:"blur(10px)",...style}}>{children}</div>;
 }
 function SecTitle({children,action}) {
   return <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
@@ -1780,737 +1866,215 @@ function PhotoUploadBox({photo, onChange, onDelete, size=84, color="#00C9A7", ic
   );
 }
 
-// ──────────── MAIN APP & ENHANCED VIEWPORT CONTROLLER ────────────
-
-function OmniCommandPalette({ isOpen, onClose, onSelectPortal, onSelectRole }) {
-  const [search, setSearch] = useState("");
-  const [selectedIndex, setSelectedIndex] = useState(0);
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        onClose(prev => !prev);
-      }
-      if (e.key === "Escape" && isOpen) {
-        onClose(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
-
-  const items = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    const portalItems = ROLES.map(r => ({
-      type: "portal",
-      id: r.id,
-      title: r.label,
-      subtitle: r.desc,
-      icon: r.icon,
-      color: r.color,
-      badge: "Portal",
-      action: () => { onSelectRole(r); onClose(false); }
-    }));
-
-    const collegeItems = [
-      { id: "aiims-delhi", title: "AIIMS New Delhi", subtitle: "MBBS · Cutoff Rank #55 · Delhi", icon: "🏛️", color: "#9C27B0", badge: "NEET UG", action: () => { const r = ROLES.find(x => x.id === "neetpredictor"); if(r) onSelectRole(r); onClose(false); } },
-      { id: "mamc-delhi", title: "Maulana Azad Medical College (MAMC)", subtitle: "MBBS · Cutoff Rank #1200 · Delhi", icon: "🏥", color: "#9C27B0", badge: "NEET UG", action: () => { const r = ROLES.find(x => x.id === "neetpredictor"); if(r) onSelectRole(r); onClose(false); } },
-      { id: "cmc-vellore", title: "CMC Vellore", subtitle: "MBBS / MD · Rank #2900 · Tamil Nadu", icon: "🩺", color: "#9C27B0", badge: "Top College", action: () => { const r = ROLES.find(x => x.id === "neetpredictor"); if(r) onSelectRole(r); onClose(false); } },
-      { id: "jipmer-puducherry", title: "JIPMER Puducherry", subtitle: "National Institute · All India Quota", icon: "🎓", color: "#9C27B0", badge: "NEET UG", action: () => { const r = ROLES.find(x => x.id === "neetpredictor"); if(r) onSelectRole(r); onClose(false); } },
-      { id: "kem-mumbai", title: "Seth GS Medical College & KEM Mumbai", subtitle: "Top Govt College · Maharashtra", icon: "🏨", color: "#9C27B0", badge: "NEET UG", action: () => { const r = ROLES.find(x => x.id === "neetpredictor"); if(r) onSelectRole(r); onClose(false); } },
-    ];
-
-    const quickActions = [
-      { id: "act-ambulance", title: "Call Emergency Ambulance", subtitle: "Instant 24x7 GPS Dispatch", icon: "🚑", color: "#C62828", badge: "Emergency SOS", action: () => { const r = ROLES.find(x => x.id === "ambulance"); if(r) onSelectRole(r); onClose(false); } },
-      { id: "act-blood", title: "Find Blood Donors & Plasma", subtitle: "Search by City & Pincode", icon: "🩸", color: "#E53935", badge: "Life Saver", action: () => { const r = ROLES.find(x => x.id === "blood"); if(r) onSelectRole(r); onClose(false); } },
-      { id: "act-neet", title: "NEET Rank & Seat Estimator", subtitle: "Check UG/PG admission odds", icon: "🎯", color: "#9C27B0", badge: "AI Tool", action: () => { const r = ROLES.find(x => x.id === "neetpredictor"); if(r) onSelectRole(r); onClose(false); } },
-      { id: "act-doctor-jobs", title: "Doctor Jobs AI Matching", subtitle: "Top Hospital Vacancies across India", icon: "💼", color: "#0066CC", badge: "Careers", action: () => { const r = ROLES.find(x => x.id === "doctor"); if(r) onSelectRole(r); onClose(false); } },
-    ];
-
-    const all = [...quickActions, ...portalItems, ...collegeItems];
-    if (!q) return all;
-    return all.filter(item =>
-      item.title.toLowerCase().includes(q) ||
-      item.subtitle.toLowerCase().includes(q) ||
-      item.badge.toLowerCase().includes(q)
-    );
-  }, [search, onSelectRole, onClose]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div style={{
-      position: "fixed",
-      inset: 0,
-      zIndex: 99999,
-      background: "rgba(3, 8, 20, 0.82)",
-      backdropFilter: "blur(14px)",
-      display: "flex",
-      alignItems: "flex-start",
-      justifyContent: "center",
-      padding: "80px 16px 20px"
-    }} onClick={() => onClose(false)}>
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: "100%",
-          maxWidth: 620,
-          background: "linear-gradient(170deg, #09152B 0%, #050E1D 100%)",
-          border: "1.5px solid rgba(0, 201, 167, 0.35)",
-          borderRadius: 22,
-          boxShadow: "0 30px 90px rgba(0,0,0,0.8), 0 0 40px rgba(0,201,167,0.2)",
-          overflow: "hidden",
-          animation: "su 0.25s ease both"
-        }}
-      >
-        {/* Search header */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-          padding: "16px 20px",
-          borderBottom: "1px solid rgba(255,255,255,0.08)",
-          background: "rgba(255,255,255,0.02)"
-        }}>
-          <span style={{ fontSize: 20, opacity: 0.8 }}>⚡</span>
-          <input
-            autoFocus
-            value={search}
-            onChange={e => { setSearch(e.target.value); setSelectedIndex(0); }}
-            placeholder="Search all 20 portals, NEET colleges, emergency tools, cities..."
-            style={{
-              flex: 1,
-              background: "transparent",
-              border: "none",
-              color: "#fff",
-              fontSize: 16,
-              outline: "none",
-              fontFamily: "Outfit, sans-serif"
-            }}
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              style={{ background: "transparent", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 13 }}
-            >
-              Clear
-            </button>
-          )}
-          <span style={{
-            background: "rgba(255,255,255,0.08)",
-            border: "1px solid rgba(255,255,255,0.15)",
-            borderRadius: 6,
-            padding: "2px 8px",
-            fontSize: 11,
-            color: "rgba(255,255,255,0.5)"
-          }}>
-            ESC to close
-          </span>
+// ──────────── MAIN APP ────────────
+// ── Error Boundary — prevents a single component crash from blanking the app ──
+class ErrorBoundary extends Component{
+  constructor(props){super(props);this.state={hasError:false,err:null};}
+  static getDerivedStateFromError(err){return{hasError:true,err};}
+  componentDidCatch(err,info){ /* In production this would report to a monitoring service */ }
+  render(){
+    if(this.state.hasError){
+      return (
+        <div style={{width:"100%",height:"100%",minHeight:844,background:"#070E1A",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:30,boxSizing:"border-box",textAlign:"center"}}>
+          <div style={{fontSize:44,marginBottom:14}}>⚠️</div>
+          <div style={{color:"#fff",fontWeight:900,fontSize:16,fontFamily:"Playfair Display,serif",marginBottom:8}}>Something went wrong</div>
+          <div style={{color:"rgba(255,255,255,0.45)",fontSize:11.5,lineHeight:1.6,marginBottom:22}}>This screen ran into an unexpected error. Your data and session are safe — try going back or reloading.</div>
+          <button onClick={()=>this.setState({hasError:false,err:null})} style={{padding:"12px 24px",background:"linear-gradient(135deg,#00C9A7,#0066CC)",border:"none",borderRadius:12,color:"#fff",fontSize:12.5,fontWeight:800,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>Try Again</button>
         </div>
-
-        {/* Results list */}
-        <div style={{ maxHeight: 420, overflowY: "auto", padding: "10px 12px" }}>
-          {items.length === 0 ? (
-            <div style={{ padding: "40px 20px", textAlign: "center", color: "rgba(255,255,255,0.4)", fontSize: 13 }}>
-              No matches found for "{search}". Try searching "Doctor", "NEET", "Ambulance", "AIIMS", or "Blood".
-            </div>
-          ) : (
-            items.map((item, idx) => (
-              <div
-                key={item.id + idx}
-                onClick={item.action}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: "12px 14px",
-                  borderRadius: 14,
-                  marginBottom: 6,
-                  cursor: "pointer",
-                  background: idx === selectedIndex ? "rgba(0, 201, 167, 0.12)" : "rgba(255,255,255,0.02)",
-                  border: `1px solid ${idx === selectedIndex ? "rgba(0, 201, 167, 0.35)" : "transparent"}`,
-                  transition: "all 0.15s ease"
-                }}
-                onMouseEnter={() => setSelectedIndex(idx)}
-              >
-                <div style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 12,
-                  background: `${item.color}22`,
-                  border: `1px solid ${item.color}44`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 20,
-                  flexShrink: 0
-                }}>
-                  {item.icon}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{item.title}</span>
-                    <span style={{
-                      fontSize: 9,
-                      fontWeight: 800,
-                      color: item.color,
-                      background: `${item.color}18`,
-                      border: `1px solid ${item.color}30`,
-                      borderRadius: 6,
-                      padding: "1px 7px"
-                    }}>
-                      {item.badge}
-                    </span>
-                  </div>
-                  <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {item.subtitle}
-                  </div>
-                </div>
-                <div style={{ color: "rgba(255,255,255,0.3)", fontSize: 12 }}>
-                  ↵
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Footer info */}
-        <div style={{
-          padding: "10px 18px",
-          background: "rgba(0,0,0,0.3)",
-          borderTop: "1px solid rgba(255,255,255,0.05)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          fontSize: 11,
-          color: "rgba(255,255,255,0.35)"
-        }}>
-          <span>Press <strong>Enter</strong> to navigate · <strong>Esc</strong> to dismiss</span>
-          <span>STETHOSCO v29 Unified Platform</span>
-        </div>
-      </div>
-    </div>
-  );
+      );
+    }
+    return this.props.children;
+  }
 }
 
 export default function Stethosco() {
-  const [screen, setScreen] = useState("welcome"); // start ready on welcome for fast preview
-  const [role, setRole] = useState(null);
-  const [activeTab, setActiveTab] = useState("dashboard");
-  const [mobile, setMobile] = useState("");
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [otpSent, setOtpSent] = useState(false);
-  const [isNewUser, setIsNewUser] = useState(false);
-  const [regName, setRegName] = useState("");
-  const [regEmail, setRegEmail] = useState("");
-  const [registeredNumbers, setRegisteredNumbers] = useState(["9876543210", "9988776655"]);
-  const [ready, setReady] = useState(true);
+  const [screen,setScreen]=useState("splash");
+  const [role,setRole]=useState(null);
+  const [activeTab,setActiveTab]=useState("dashboard");
+  const [mobile,setMobile]=useState("");
+  const [otp,setOtp]=useState(["","","","","",""]);
+  const [otpSent,setOtpSent]=useState(false);
+  const [isNewUser,setIsNewUser]=useState(false);
+  const [regName,setRegName]=useState("");
+  const [regEmail,setRegEmail]=useState("");
+  const [registeredNumbers,setRegisteredNumbers]=useState([]); // simulates a known-users store
+  const [appLang,setAppLang]=useState("en");
+  const [ready,setReady]=useState(false);
 
-  // ── UX Viewport & Aesthetic Controls ──
-  const [viewMode, setViewMode] = useState("mobile"); // "mobile" (390px), "phablet" (440px), "canvas" (980px)
-  const [themeGlow, setThemeGlow] = useState("cyan"); // "cyan", "violet", "emerald", "crimson", "amber"
-  const [showOmniSearch, setShowOmniSearch] = useState(false);
-
-  const themeColors = {
-    cyan: { primary: "#00C9A7", glow: "rgba(0, 201, 167, 0.25)", bgGrad: "radial-gradient(ellipse at 25% 35%, rgba(0,70,160,0.45) 0%, transparent 55%), radial-gradient(ellipse at 75% 65%, rgba(0,160,130,0.3) 0%, transparent 50%), radial-gradient(ellipse at 50% 100%, rgba(30,0,80,0.35) 0%, transparent 50%), linear-gradient(145deg,#010608 0%,#060F20 50%,#030A16 100%)" },
-    violet: { primary: "#A78BFA", glow: "rgba(167, 139, 250, 0.25)", bgGrad: "radial-gradient(ellipse at 25% 35%, rgba(100,30,160,0.45) 0%, transparent 55%), radial-gradient(ellipse at 75% 65%, rgba(60,20,130,0.3) 0%, transparent 50%), radial-gradient(ellipse at 50% 100%, rgba(20,0,50,0.4) 0%, transparent 50%), linear-gradient(145deg,#04010A 0%,#120822 50%,#080314 100%)" },
-    emerald: { primary: "#00E676", glow: "rgba(0, 230, 118, 0.25)", bgGrad: "radial-gradient(ellipse at 25% 35%, rgba(0,100,70,0.45) 0%, transparent 55%), radial-gradient(ellipse at 75% 65%, rgba(0,140,80,0.3) 0%, transparent 50%), radial-gradient(ellipse at 50% 100%, rgba(0,40,20,0.4) 0%, transparent 50%), linear-gradient(145deg,#010A05 0%,#05180E 50%,#020E07 100%)" },
-    crimson: { primary: "#FF4757", glow: "rgba(255, 71, 87, 0.25)", bgGrad: "radial-gradient(ellipse at 25% 35%, rgba(140,20,40,0.45) 0%, transparent 55%), radial-gradient(ellipse at 75% 65%, rgba(100,10,30,0.3) 0%, transparent 50%), radial-gradient(ellipse at 50% 100%, rgba(50,0,15,0.4) 0%, transparent 50%), linear-gradient(145deg,#0B0103 0%,#1C060B 50%,#0E0205 100%)" },
-    amber: { primary: "#FFA116", glow: "rgba(255, 161, 22, 0.25)", bgGrad: "radial-gradient(ellipse at 25% 35%, rgba(130,70,0,0.45) 0%, transparent 55%), radial-gradient(ellipse at 75% 65%, rgba(90,45,0,0.3) 0%, transparent 50%), radial-gradient(ellipse at 50% 100%, rgba(45,20,0,0.4) 0%, transparent 50%), linear-gradient(145deg,#090501 0%,#1A0F03 50%,#0C0701 100%)" },
-  };
-
-  const curTheme = themeColors[themeGlow] || themeColors.cyan;
-
-  useEffect(() => {
-    __switchRole = (r) => {
-      setRole(r);
-      setActiveTab("dashboard");
-      setScreen("app");
-    };
-  }, []);
-
-  const handleOtp = (val, i) => {
-    const n = [...otp];
-    n[i] = val.replace(/\D/, "").slice(-1);
-    setOtp(n);
-    if (val && i < 5) document.getElementById("o" + (i + 1))?.focus();
-  };
-
-  const handleQuickDemo = (roleId, demoName, demoPhone) => {
-    const targetRole = ROLES.find(r => r.id === roleId) || ROLES[0];
-    setMobile(demoPhone || "9876543210");
-    setRegName(demoName || "Dr. Rajesh");
-    setRole(targetRole);
-    setActiveTab("dashboard");
-    setScreen("app");
-  };
-
-  // Viewport dimensions based on selected mode
-  const frameWidth = viewMode === "canvas" ? 980 : viewMode === "phablet" ? 440 : 390;
-  const isCanvas = viewMode === "canvas";
-
+  useEffect(()=>{const t=setTimeout(()=>setReady(true),2600);return()=>clearTimeout(t);},[]);
+  useEffect(()=>{if(ready&&screen==="splash")setScreen("welcome");},[ready]);
+  useEffect(()=>{__switchRole=(r)=>{setRole(r);setActiveTab("dashboard");setScreen("app");};},[]);
+  const handleOtp=(val,i)=>{const n=[...otp];n[i]=val.replace(/\D/,"").slice(-1);setOtp(n);if(val&&i<5)document.getElementById("o"+( i+1))?.focus();};
   return (
     <>
-      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;900&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet"/>
-      <style>{`
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-thumb { background: rgba(0,201,167,0.3); border-radius: 4px; }
-        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
-        @keyframes pu { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .3; transform: scale(0.96); } }
-        @keyframes su { from { transform: translateY(18px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes fi { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes hb { 0%, 100% { transform: scale(1); } 14% { transform: scale(1.15); } 28% { transform: scale(1); } 42% { transform: scale(1.08); } 70% { transform: scale(1); } }
-        @keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 25px rgba(0,201,167,0.2); } 50% { box-shadow: 0 0 45px rgba(0,201,167,0.45); } }
-        @keyframes ecgScroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
-        .su { animation: su .35s ease both; }
-        .fi { animation: fi .35s ease both; }
-        .hb { animation: hb 1.8s ease infinite; }
-        input, select, button { font-family: Outfit, sans-serif; outline: none; }
-        .chk:hover { background: rgba(0,201,167,0.08)!important; }
-        
-        .control-pill {
-          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          cursor: pointer;
-          user-select: none;
+      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet"/>
+      <style>{`*{box-sizing:border-box;margin:0;padding:0;}::-webkit-scrollbar{width:0;}
+        @keyframes pu{0%,100%{opacity:1}50%{opacity:.3}}
+        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+        @keyframes su{from{transform:translateY(24px);opacity:0}to{transform:translateY(0);opacity:1}}
+        @keyframes fi{from{opacity:0}to{opacity:1}}
+        @keyframes hb{0%,100%{transform:scale(1)}14%{transform:scale(1.18)}28%{transform:scale(1)}42%{transform:scale(1.08)}70%{transform:scale(1)}}
+        @keyframes dr{0%{transform:translateY(-8px);opacity:0}60%{transform:translateY(2px);opacity:1}100%{transform:translateY(0);opacity:1}}
+        @keyframes gl{0%,100%{opacity:0.7}50%{opacity:1}}
+        .dr{animation:dr .6s ease both}.gl{animation:gl 2s ease infinite}
+        .su{animation:su .45s ease both}.fi{animation:fi .4s ease both}.hb{animation:hb 1.8s ease infinite}
+        input,select,button{font-family:Outfit,sans-serif;outline:none;appearance:none;}
+        button{transition:transform .08s ease, opacity .08s ease, filter .08s ease;}
+        button:active:not(:disabled){transform:scale(0.96);filter:brightness(0.92);}
+        .chk:hover{background:rgba(0,201,167,0.08)!important;}
+        .stetho-outer{
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          min-height:100vh;
+          padding:20px;
+          box-sizing:border-box;
         }
-        .control-pill:hover {
-          transform: translateY(-1.5px);
+        .stetho-frame{
+          width:100%;
+          max-width:440px;
+          height:844px;
+          max-height:92vh;
+          margin-top:28px;
+          background:#070E1A;
+          border-radius:40px;
+          overflow:hidden;
+          position:relative;
+          font-family:Outfit,sans-serif;
+          box-shadow:0 50px 140px rgba(0,100,255,0.22),0 0 0 1px rgba(0,201,167,0.15),0 0 0 12px #0D1929,0 0 0 14px rgba(0,201,167,0.08),0 0 0 26px #070E1A;
+          transition:all .3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .control-pill:active {
-          transform: translateY(0.5px);
+        @media (max-width:500px){
+          .stetho-outer{padding:0;}
+          .stetho-frame{
+            max-width:100%;
+            height:100vh;
+            max-height:100vh;
+            margin-top:0;
+            border-radius:0;
+            box-shadow:none;
+          }
+          .stetho-island{display:none!important;}
         }
 
-        .stetho-outer { padding: 16px 12px 32px; }
-        .stetho-frame {
-          transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.35s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.3s ease;
+              .animated-pulse-line {
+          stroke-dasharray: 600;
+          stroke-dashoffset: 600;
+          animation: strokeHeart 3s ease-in-out infinite;
         }
-        @media (max-width: 480px) {
-          .stetho-outer { padding: 8px 4px 20px; }
-          .stetho-frame { width: 100% !important; max-width: 100% !important; border-radius: 20px !important; }
+        @keyframes strokeHeart {
+          0% { stroke-dashoffset: 600; }
+          45% { stroke-dashoffset: 0; }
+          100% { stroke-dashoffset: 0; }
         }
       `}</style>
-
-      {/* Omni-Search Modal */}
-      <OmniCommandPalette
-        isOpen={showOmniSearch}
-        onClose={setShowOmniSearch}
-        onSelectRole={r => {
-          setRole(r);
-          setActiveTab("dashboard");
-          setScreen("app");
-        }}
-      />
-
-      <div className="stetho-outer" style={{
-        minHeight: "100vh",
-        background: curTheme.bgGrad,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "flex-start",
-        gap: 14,
-        fontFamily: "Outfit, sans-serif",
-        color: "#fff"
-      }}>
-
-        {/* ── TOP FLOATING CONTROL BAR ── */}
-        <header style={{
-          width: "100%",
-          maxWidth: Math.max(frameWidth + 40, 840),
-          background: "rgba(10, 20, 40, 0.75)",
-          backdropFilter: "blur(18px)",
-          border: "1px solid rgba(255, 255, 255, 0.12)",
-          borderRadius: 18,
-          padding: "10px 16px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: 10,
-          boxShadow: `0 10px 30px rgba(0,0,0,0.5), 0 0 25px ${curTheme.glow}`,
-          zIndex: 1000
-        }}>
-          {/* Logo & Status */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              background: "linear-gradient(135deg, #0066CC, #00C9A7)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 18,
-              boxShadow: "0 4px 14px rgba(0,201,167,0.4)"
-            }}>
-              🩺
+      <div className="stetho-outer" style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"radial-gradient(ellipse at 25% 35%, rgba(0,70,160,0.4) 0%, transparent 55%), radial-gradient(ellipse at 75% 65%, rgba(0,160,130,0.25) 0%, transparent 50%), radial-gradient(ellipse at 50% 100%, rgba(30,0,80,0.3) 0%, transparent 50%), linear-gradient(145deg,#010608 0%,#060F20 50%,#030A16 100%)"}}>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16,width:"100%",maxWidth:480}}>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"center"}}>
+            <div style={{background:"rgba(0,201,167,0.1)",border:"1px solid rgba(0,201,167,0.3)",borderRadius:8,padding:"4px 14px",color:"#00C9A7",fontSize:11,fontFamily:"Outfit",fontWeight:600}}>STETHOSCO v29 · Live Preview</div>
+            <div style={{background:"rgba(94,53,177,0.12)",border:"1px solid rgba(94,53,177,0.3)",borderRadius:8,padding:"4px 14px",color:"#A78BFA",fontSize:11,fontFamily:"Outfit",fontWeight:600}}>36 States · 932+ Cities · {ROLES.length} Portals</div>
+          </div>
+          <div className="stetho-frame">
+            <div className="stetho-island" style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:126,height:34,background:"#070E1A",borderRadius:"0 0 22px 22px",zIndex:100,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+              <div style={{width:10,height:10,borderRadius:"50%",background:"#18253F",border:"1px solid #223"}}/>
+              <div style={{width:60,height:5,borderRadius:10,background:"#18253F"}}/>
             </div>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontFamily: "Playfair Display, serif", fontWeight: 900, fontSize: 16, letterSpacing: -0.5 }}>
-                  STETH<span style={{ color: curTheme.primary }}>O</span>SCO
-                </span>
-                <span style={{
-                  background: "rgba(0,201,167,0.15)",
-                  border: "1px solid rgba(0,201,167,0.3)",
-                  borderRadius: 6,
-                  padding: "1px 6px",
-                  fontSize: 9.5,
-                  fontWeight: 800,
-                  color: "#00C9A7"
-                }}>
-                  v29 FINAL
-                </span>
-              </div>
-              <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 10 }}>
-                Pan-India Medical Ecosystem · 20 Portals · 632+ Cities
-              </div>
+            <div style={{position:"absolute",inset:0,overflowY:"auto",overflowX:"hidden"}}>
+              <ErrorBoundary>
+              {screen==="splash"&&<Splash/>}
+              {screen==="welcome"&&<Welcome onNext={()=>setScreen("auth")}/>}
+              {screen==="auth"&&<Auth mobile={mobile} setMobile={setMobile} otpSent={otpSent} otp={otp} onOtp={handleOtp}
+                onSend={()=>mobile.length===10&&setOtpSent(true)}
+                onVerify={()=>{
+                  if(registeredNumbers.includes(mobile)){ setScreen("consent"); }
+                  else { setIsNewUser(true); }
+                }}
+                newUser={isNewUser} regName={regName} setRegName={setRegName} regEmail={regEmail} setRegEmail={setRegEmail}
+                onRegister={()=>{
+                  setRegisteredNumbers(p=>[...p,mobile]);
+                  setIsNewUser(false);
+                  setScreen("consent");
+                }}/>}
+              {screen==="consent"&&<SelfConsentForm onAgree={()=>setScreen("roles")}/>}
+              {screen==="roles"&&<RoleSelect onSelect={r=>{setRole(r);setActiveTab("dashboard");setScreen("app");}}/>}
+              {screen==="app"&&role&&<AppShell role={role} activeTab={activeTab} setActiveTab={setActiveTab} onBack={()=>setScreen("roles")} onLogout={()=>{setRole(null);setMobile("");setOtp(["","","","","",""]);setOtpSent(false);setScreen("welcome");}} lang={appLang} setLang={setAppLang}/>}
+              </ErrorBoundary>
             </div>
           </div>
-
-          {/* Quick Omni-Search Launcher */}
-          <button
-            onClick={() => setShowOmniSearch(true)}
-            className="control-pill"
-            style={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.14)",
-              borderRadius: 12,
-              padding: "7px 14px",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              color: "rgba(255,255,255,0.75)",
-              fontSize: 12,
-              cursor: "pointer"
-            }}
-          >
-            <span>🔍</span>
-            <span>Search Portals / Colleges</span>
-            <span style={{
-              background: "rgba(255,255,255,0.1)",
-              borderRadius: 4,
-              padding: "1px 6px",
-              fontSize: 9.5,
-              fontWeight: 700,
-              color: "rgba(255,255,255,0.6)"
-            }}>
-              Ctrl+K
-            </span>
-          </button>
-
-          {/* Viewport Switcher */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            background: "rgba(0,0,0,0.35)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: 12,
-            padding: 3,
-            gap: 2
-          }}>
-            {[
-              { id: "mobile", label: "📱 Mobile 390px", title: "iPhone 15 Mobile Canvas" },
-              { id: "phablet", label: "📱 Max 440px", title: "Pro Max Layout" },
-              { id: "canvas", label: "💻 Canvas 980px", title: "Expanded Desktop / Tablet Dashboard" },
-            ].map(v => (
-              <button
-                key={v.id}
-                onClick={() => setViewMode(v.id)}
-                title={v.title}
-                className="control-pill"
-                style={{
-                  background: viewMode === v.id ? "linear-gradient(135deg, #0066CC, #00C9A7)" : "transparent",
-                  border: "none",
-                  borderRadius: 9,
-                  padding: "5px 10px",
-                  color: viewMode === v.id ? "#fff" : "rgba(255,255,255,0.5)",
-                  fontSize: 11,
-                  fontWeight: viewMode === v.id ? 700 : 500
-                }}
-              >
-                {v.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Theme Color Glows */}
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            {Object.keys(themeColors).map(th => (
-              <div
-                key={th}
-                onClick={() => setThemeGlow(th)}
-                title={`Switch theme glow: ${th}`}
-                style={{
-                  width: 18,
-                  height: 18,
-                  borderRadius: "50%",
-                  background: themeColors[th].primary,
-                  cursor: "pointer",
-                  border: themeGlow === th ? "2px solid #fff" : "2px solid transparent",
-                  boxShadow: themeGlow === th ? `0 0 10px ${themeColors[th].primary}` : "none",
-                  transition: "all 0.2s"
-                }}
-              />
-            ))}
-          </div>
-        </header>
-
-        {/* ── FAST JUMP PORTAL DOCK ── */}
-        <nav style={{
-          display: "flex",
-          gap: 6,
-          overflowX: "auto",
-          maxWidth: "100%",
-          padding: "4px 8px 6px",
-          scrollbarWidth: "none"
-        }}>
-          {[
-            { id: "doctor", icon: "🩺", label: "Doctor" },
-            { id: "patient", icon: "🫀", label: "Patient" },
-            { id: "hospital", icon: "🏥", label: "Hospital" },
-            { id: "neetpredictor", icon: "🎯", label: "NEET Predictor" },
-            { id: "student", icon: "🎓", label: "Student Corner" },
-            { id: "pharmacy", icon: "💊", label: "Pharmacy" },
-            { id: "diagnostic", icon: "🔬", label: "Diagnostics" },
-            { id: "blood", icon: "🩸", label: "Blood Bank" },
-            { id: "ambulance", icon: "🚑", label: "Emergency Ambulance" },
-            { id: "admin", icon: "🛠️", label: "Admin Panel" },
-          ].map(p => {
-            const isCurrent = screen === "app" && role?.id === p.id;
-            return (
-              <button
-                key={p.id}
-                onClick={() => {
-                  const targetRole = ROLES.find(r => r.id === p.id);
-                  if (targetRole) {
-                    setRole(targetRole);
-                    setActiveTab("dashboard");
-                    setScreen("app");
-                  }
-                }}
-                className="control-pill"
-                style={{
-                  flexShrink: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                  background: isCurrent ? "rgba(0, 201, 167, 0.22)" : "rgba(255, 255, 255, 0.04)",
-                  border: `1px solid ${isCurrent ? "rgba(0, 201, 167, 0.5)" : "rgba(255, 255, 255, 0.08)"}`,
-                  borderRadius: 10,
-                  padding: "5px 11px",
-                  color: isCurrent ? "#00C9A7" : "rgba(255, 255, 255, 0.65)",
-                  fontSize: 11,
-                  fontWeight: isCurrent ? 700 : 500
-                }}
-              >
-                <span>{p.icon}</span>
-                <span>{p.label}</span>
-              </button>
-            );
-          })}
-          <button
-            onClick={() => setScreen("roles")}
-            className="control-pill"
-            style={{
-              flexShrink: 0,
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              background: "rgba(255, 255, 255, 0.08)",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              borderRadius: 10,
-              padding: "5px 11px",
-              color: "#fff",
-              fontSize: 11,
-              fontWeight: 700
-            }}
-          >
-            <span>✨ All 20 Portals</span>
-          </button>
-        </nav>
-
-        {/* ── MAIN APPLICATION DEVICE CANVAS ── */}
-        <main
-          className="stetho-frame"
-          style={{
-            width: isCanvas ? "98%" : frameWidth,
-            maxWidth: frameWidth,
-            height: isCanvas ? "calc(100vh - 170px)" : 844,
-            minHeight: isCanvas ? 780 : 844,
-            background: "#070E1A",
-            borderRadius: isCanvas ? 26 : 44,
-            overflow: "hidden",
-            position: "relative",
-            fontFamily: "Outfit, sans-serif",
-            boxShadow: isCanvas
-              ? `0 40px 100px rgba(0,0,0,0.85), 0 0 0 1px rgba(255,255,255,0.1), 0 0 50px ${curTheme.glow}`
-              : `0 50px 140px rgba(0,100,255,0.22), 0 0 0 1px rgba(0,201,167,0.2), 0 0 0 10px #0D1929, 0 0 0 12px rgba(0,201,167,0.12), 0 0 0 22px #070E1A`,
-            display: "flex",
-            flexDirection: "column"
-          }}
-        >
-          {/* Dynamic Island on Mobile Modes */}
-          {!isCanvas && (
-            <div style={{
-              position: "absolute",
-              top: 0,
-              left: "50%",
-              transform: "translateX(-50%)",
-              width: 126,
-              height: 30,
-              background: "#070E1A",
-              borderRadius: "0 0 20px 20px",
-              zIndex: 100,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              borderBottom: "1px solid rgba(255,255,255,0.06)"
-            }}>
-              <div style={{ width: 9, height: 9, borderRadius: "50%", background: "#18253F", border: "1px solid #223" }}/>
-              <div style={{ width: 55, height: 4, borderRadius: 10, background: "#18253F" }}/>
-            </div>
-          )}
-
-          {/* Desktop Glass Header Bar when in 980px Canvas mode */}
-          {isCanvas && (
-            <div style={{
-              height: 48,
-              background: "rgba(5, 14, 29, 0.9)",
-              borderBottom: "1px solid rgba(255,255,255,0.08)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "0 20px",
-              flexShrink: 0,
-              zIndex: 100
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#FF5F56" }}/>
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#FFBD2E" }}/>
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#27C93F" }}/>
-                </div>
-                <span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginLeft: 8 }}>
-                  STETHOSCO Desktop Workspace · {screen === "app" ? (role?.label || "Medical Hub") : screen.toUpperCase()}
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <span style={{ fontSize: 11, color: "#00C9A7" }}>● Live Network Connected</span>
-                <button
-                  onClick={() => setScreen("welcome")}
-                  style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, padding: "2px 8px", color: "#fff", fontSize: 10, cursor: "pointer" }}
-                >
-                  Home Screen
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Screen Router Viewport */}
-          <div style={{
-            flex: 1,
-            position: "relative",
-            overflowY: "auto",
-            overflowX: "hidden",
-            display: "flex",
-            justifyContent: "center"
-          }}>
-            <div style={{
-              width: "100%",
-              maxWidth: isCanvas ? 980 : frameWidth,
-              minHeight: "100%",
-              display: "flex",
-              flexDirection: "column"
-            }}>
-              {screen === "splash" && <Splash />}
-              {screen === "welcome" && <Welcome onNext={() => setScreen("auth")} />}
-              {screen === "auth" && (
-                <Auth
-                  mobile={mobile}
-                  setMobile={setMobile}
-                  otpSent={otpSent}
-                  setOtpSent={setOtpSent}
-                  otp={otp}
-                  setOtp={setOtp}
-                  onOtp={handleOtp}
-                  newUser={isNewUser}
-                  regName={regName}
-                  setRegName={setRegName}
-                  regEmail={regEmail}
-                  setRegEmail={setRegEmail}
-                  onRegister={() => {
-                    setRegisteredNumbers(p => [...p, mobile]);
-                    setIsNewUser(false);
-                    setScreen("roles");
-                  }}
-                  onQuickDemo={handleQuickDemo}
-                  onLoginSuccess={() => {
-                    if (registeredNumbers.includes(mobile)) {
-                      setScreen("roles");
-                    } else {
-                      setIsNewUser(true);
-                    }
-                  }}
-                />
-              )}
-              {screen === "roles" && (
-                <RoleSelect
-                  onSelect={r => {
-                    setRole(r);
-                    setActiveTab("dashboard");
-                    setScreen("app");
-                  }}
-                />
-              )}
-              {screen === "app" && role && (
-                <AppShell
-                  role={role}
-                  activeTab={activeTab}
-                  setActiveTab={setActiveTab}
-                  onBack={() => setScreen("roles")}
-                />
-              )}
-            </div>
-          </div>
-        </main>
-
-        {/* Footer Subtext */}
-        <footer style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          color: "rgba(255,255,255,0.3)",
-          fontSize: 11,
-          flexWrap: "wrap",
-          justifyContent: "center"
-        }}>
-          <span>STETHOSCO v29 FINAL · Unified Pan-India Healthcare Platform</span>
-          <span>•</span>
-          <span>Keyboard: Press <kbd style={{ background: "rgba(255,255,255,0.1)", padding: "1px 5px", borderRadius: 4, color: "#fff" }}>Ctrl + K</kbd> to Launch Omni-Search</span>
-        </footer>
+          <div style={{color:"rgba(255,255,255,0.18)",fontSize:11,fontFamily:"Outfit",letterSpacing:1}}>STETHOSCO v29 · Pan-India Medical Ecosystem</div>
+        </div>
       </div>
     </>
   );
 }
+
+// ── Self-Consent Form — end-user consent to access STETHOSCO's services ──
+const SELF_CONSENT_CLAUSES=[
+  {id:"age",icon:"🪪",title:"Age & Legal Capacity",text:"I confirm I am 18 years of age or older, or that a parent/legal guardian is providing this consent on my behalf, and that I have the legal capacity to use this application."},
+  {id:"data",icon:"🔒",title:"Data Collection & Processing",text:"I voluntarily consent to STETHOSCO collecting, storing, and processing my personal and health-related information solely to provide app features (bookings, records, predictions, alerts), in line with applicable Indian data-protection law. I may withdraw this consent at any time via account settings."},
+  {id:"telemed",icon:"⚕️",title:"Telemedicine & AI-Feature Disclaimer",text:"I understand that consultations, EMR tools, and AI-assisted features (NEET Predictor, job/doctor matching, rank estimates) provide informational or facilitative support only, are not a substitute for in-person emergency medical care, and do not replace independent professional medical judgment."},
+  {id:"comm",icon:"📩",title:"Communication Consent",text:"I consent to receiving appointment reminders, alerts, and service-related communication via SMS, email, WhatsApp, or push notification, which I may opt out of at any time."},
+];
+function SelfConsentForm({onAgree}){
+  const [agreed,setAgreed]=useState({});
+  const [expanded,setExpanded]=useState(null);
+  const allAgreed = SELF_CONSENT_CLAUSES.every(c=>agreed[c.id]);
+  const toggle=id=>setAgreed(a=>({...a,[id]:!a[id]}));
+  return (
+    <div style={{width:"100%",height:"100%",minHeight:844,background:"linear-gradient(160deg,#040C1E,#081A38 60%,#051428)",padding:"26px 20px",boxSizing:"border-box"}}>
+      <div style={{textAlign:"center",marginBottom:16}}>
+        <div style={{fontSize:36,marginBottom:6}}>🤝</div>
+        <div style={{color:"#fff",fontFamily:"Playfair Display,serif",fontWeight:900,fontSize:19}}>Your Consent Matters</div>
+        <div style={{color:"rgba(255,255,255,0.4)",fontSize:10.5,marginTop:4,lineHeight:1.5}}>Before you access STETHOSCO's services, please review and confirm the following.</div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:16}}>
+        {SELF_CONSENT_CLAUSES.map(c=>(
+          <div key={c.id} style={{background:agreed[c.id]?"rgba(0,201,167,0.08)":"rgba(255,255,255,0.03)",border:`1.5px solid ${agreed[c.id]?"rgba(0,201,167,0.35)":"rgba(255,255,255,0.1)"}`,borderRadius:14,padding:12}}>
+            <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+              <div onClick={()=>toggle(c.id)} style={{width:20,height:20,borderRadius:6,border:`1.5px solid ${agreed[c.id]?"#00C9A7":"rgba(255,255,255,0.3)"}`,background:agreed[c.id]?"#00C9A7":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1,cursor:"pointer"}}>{agreed[c.id]&&<span style={{color:"#04140F",fontSize:12,fontWeight:900}}>✓</span>}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div onClick={()=>setExpanded(e=>e===c.id?null:c.id)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
+                  <div style={{color:"#fff",fontWeight:700,fontSize:11.5}}>{c.icon} {c.title}</div>
+                  <span style={{color:"rgba(255,255,255,0.3)",fontSize:12,transform:expanded===c.id?"rotate(180deg)":"none",transition:"transform .2s",flexShrink:0}}>⌄</span>
+                </div>
+                {expanded===c.id&&<div style={{color:"rgba(255,255,255,0.5)",fontSize:10,lineHeight:1.6,marginTop:6}}>{c.text}</div>}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div onClick={()=>{if(allAgreed)return; const next={}; SELF_CONSENT_CLAUSES.forEach(c=>next[c.id]=true); setAgreed(next);}} style={{background:allAgreed?"rgba(0,201,167,0.1)":"rgba(255,255,255,0.04)",border:`1.5px solid ${allAgreed?"rgba(0,201,167,0.35)":"rgba(255,255,255,0.12)"}`,borderRadius:12,padding:"10px 13px",marginBottom:14,cursor:"pointer",fontSize:10.5,color:allAgreed?"#00C9A7":"rgba(255,255,255,0.5)",fontWeight:700,textAlign:"center"}}>{allAgreed?"✓ All consents confirmed":"Tap to select all"}</div>
+      <button onClick={()=>allAgreed&&onAgree()} disabled={!allAgreed} style={{width:"100%",padding:"14px",background:allAgreed?"linear-gradient(135deg,#00C9A7,#0066CC)":"rgba(255,255,255,0.06)",border:"none",borderRadius:13,color:allAgreed?"#fff":"rgba(255,255,255,0.3)",fontSize:13,fontWeight:800,cursor:allAgreed?"pointer":"not-allowed",fontFamily:"Outfit,sans-serif"}}>I Consent & Continue to STETHOSCO</button>
+      <div style={{color:"rgba(255,255,255,0.25)",fontSize:9,textAlign:"center",marginTop:12,lineHeight:1.6}}>You may review or withdraw specific consents anytime from Settings → Privacy. Declining required consents will limit access to certain features.</div>
+    </div>
+  );
+}
+
 function Splash() {
   return (
-    <div style={{width:390,height:844,background:"linear-gradient(160deg,#040C1E,#081A38 60%,#051428)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:20,position:"relative",overflow:"hidden"}}>
-      {[...Array(20)].map((_,i)=><div key={i} style={{position:"absolute",width:Math.random()*3+1,height:Math.random()*3+1,borderRadius:"50%",background:`rgba(0,201,167,${Math.random()*0.5+0.1})`,left:`${Math.random()*100}%`,top:`${Math.random()*100}%`,animation:`pu ${Math.random()*3+2}s ease infinite`,animationDelay:`${Math.random()*3}s`}}/>)}
-      <svg style={{position:"absolute",bottom:90,width:"100%",opacity:0.1}} viewBox="0 0 390 60"><path d="M0 30 L60 30 L75 30 L85 5 L95 55 L105 5 L115 30 L140 30 L155 30 L165 10 L175 50 L185 10 L195 30 L390 30" stroke="#00C9A7" strokeWidth="1.5" fill="none"/></svg>
-      <div className="hb" style={{fontSize:72}}>🩺</div>
-      <div style={{textAlign:"center",animation:"fi 1s ease .5s both"}}>
-        <div style={{fontFamily:"Playfair Display,serif",fontSize:44,fontWeight:900,color:"#fff",letterSpacing:-1}}>STETH<span style={{color:"#00C9A7"}}>O</span>SCO</div>
-        <div style={{color:"rgba(0,201,167,0.6)",fontSize:11,letterSpacing:4,marginTop:8,textTransform:"uppercase"}}>Unified Medical Ecosystem · v11.0</div>
-        <div style={{color:"rgba(255,255,255,0.2)",fontSize:10,marginTop:6,letterSpacing:2}}>36 States · 932+ Cities · {ROLES.length} Portals · Pan-India</div>
+    <div style={{width:"100%",height:"100%",background:"radial-gradient(circle at center, #0a2540 0%, #030d1a 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:24,position:"relative",overflow:"hidden"}}>
+      {/* Ambient glowing orbs */}
+      <div style={{position:"absolute",width:300,height:300,borderRadius:"50%",background:"radial-gradient(circle, rgba(0,201,167,0.15) 0%, transparent 70%)",filter:"blur(40px)",animation:"hb 4s ease infinite"}}/>
+      
+      {[...Array(24)].map((_,i)=><div key={i} style={{position:"absolute",width:Math.random()*2+1.5,height:Math.random()*2+1.5,borderRadius:"50%",background:`rgba(0,201,167,${Math.random()*0.6+0.25})`,left:`${Math.random()*100}%`,top:`${Math.random()*100}%`,animation:`pu ${Math.random()*3+2}s ease infinite`,animationDelay:`${Math.random()*3}s`}}/>)}
+      
+      <svg style={{position:"absolute",bottom:100,width:"100%",opacity:0.25}} viewBox="0 0 390 60">
+        <path className="animated-pulse-line" d="M0 30 L60 30 L75 30 L85 5 L95 55 L105 5 L115 30 L140 30 L155 30 L165 10 L175 50 L185 10 L195 30 L390 30" stroke="#00C9A7" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+      
+      <div className="hb" style={{width:110,height:110,borderRadius:"50%",background:"rgba(0,201,167,0.08)",border:"1.5px solid rgba(0,201,167,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:52,boxShadow:"0 15px 45px rgba(0,201,167,0.25)",backdropFilter:"blur(10px)",zIndex:5}}>🩺</div>
+      
+      <div style={{textAlign:"center",animation:"fi 1s ease .5s both",zIndex:5}}>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:46,fontWeight:900,color:"#fff",letterSpacing:-1,textShadow:"0 0 30px rgba(0,201,167,0.45)"}}>STETH<span style={{color:"#00C9A7"}}>O</span>SCO</div>
+        <div style={{color:"#00C9A7",fontSize:11.5,fontWeight:800,letterSpacing:4,marginTop:10,textTransform:"uppercase"}}>Unified Medical Ecosystem · v29</div>
+        <div style={{color:"rgba(255,255,255,0.38)",fontSize:10.5,marginTop:8,letterSpacing:1.5}}>36 States · 932+ Cities · {ROLES.length} Portals · Pan-India</div>
       </div>
-      <div style={{display:"flex",gap:6,animation:"fi 1s ease 1.5s both"}}>
-        {[0,1,2].map(i=><div key={i} style={{width:8,height:8,borderRadius:"50%",background:i===1?"#00C9A7":"rgba(0,201,167,0.2)",animation:`pu 1.2s ease ${i*.3}s infinite`}}/>)}
+      
+      <div style={{display:"flex",gap:8,animation:"fi 1s ease 1.2s both",zIndex:5,marginTop:8}}>
+        {[0,1,2].map(i=><div key={i} style={{width:9,height:9,borderRadius:"50%",background:i===1?"#00C9A7":"rgba(0,201,167,0.25)",animation:`pu 1.2s ease ${i*.3}s infinite`}}/>)}
       </div>
-      <div style={{position:"absolute",bottom:44,color:"rgba(255,255,255,0.18)",fontSize:10,letterSpacing:3,textTransform:"uppercase"}}>AI-Powered · Secure · Pan-India</div>
+      
+      <div style={{position:"absolute",bottom:44,color:"rgba(255,255,255,0.22)",fontSize:9.5,letterSpacing:3,textTransform:"uppercase",fontWeight:600}}>AI-Powered · Secure · Pan-India</div>
     </div>
   );
 }
@@ -2537,9 +2101,12 @@ function Welcome({onNext}) {
   const feat=featured[activeFeature];
 
   return (
-    <div style={{width:390,minHeight:844,background:"linear-gradient(180deg,#040C1E,#081830)",display:"flex",flexDirection:"column",overflowY:"auto"}}>
+    <div style={{width:"100%",height:"100%",minHeight:844,background:"linear-gradient(180deg,#040C1E,#08152c)",display:"flex",flexDirection:"column",overflowY:"auto",position:"relative"}}>
+      {/* Decorative ambient glowing backdrops */}
+      <div style={{position:"absolute",top:"-10%",left:"-10%",width:"60%",height:"40%",background:"radial-gradient(circle, rgba(0,201,167,0.05) 0%, transparent 70%)",pointerEvents:"none",zIndex:0}}/>
+      <div style={{position:"absolute",bottom:"-10%",right:"-10%",width:"60%",height:"40%",background:"radial-gradient(circle, rgba(0,102,204,0.08) 0%, transparent 70%)",pointerEvents:"none",zIndex:0}}/>
       {/* Hero Header */}
-      <div style={{padding:"58px 22px 22px",textAlign:"center",flexShrink:0}}>
+      <div style={{padding:"58px 22px 22px",textAlign:"center",flexShrink:0,zIndex:1,position:"relative"}}>
         <div className="su" style={{display:"inline-flex",alignItems:"center",gap:10,background:"rgba(0,201,167,0.1)",border:"1px solid rgba(0,201,167,0.3)",borderRadius:50,padding:"6px 16px",marginBottom:16}}>
           <div style={{width:8,height:8,borderRadius:"50%",background:"#00C9A7",animation:"pu 1.2s ease infinite"}}/>
           <span style={{color:"#00C9A7",fontSize:10,fontWeight:700,letterSpacing:1}}>INDIA'S MEDICAL ECOSYSTEM · v29 — Unified</span>
@@ -2553,7 +2120,7 @@ function Welcome({onNext}) {
       </div>
 
       {/* ── 3 Featured Portal Widgets ── */}
-      <div style={{padding:"0 14px",flexShrink:0}}>
+      <div style={{padding:"0 14px",flexShrink:0,zIndex:1,position:"relative"}}>
         {/* Tab pills */}
         <div style={{display:"flex",gap:7,marginBottom:14,overflowX:"auto",paddingBottom:4}}>
           {featured.map((f,i)=>(
@@ -2654,109 +2221,12 @@ function Welcome({onNext}) {
 }
 
 
-function Auth({
-  mobile,
-  setMobile,
-  otpSent,
-  setOtpSent,
-  otp,
-  setOtp,
-  onOtp,
-  newUser,
-  regName,
-  setRegName,
-  regEmail,
-  setRegEmail,
-  onRegister,
-  onQuickDemo,
-  onLoginSuccess
-}) {
-  const [confirmationResult, setConfirmationResult] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [statusMsg, setStatusMsg] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
-  const [resendTimer, setResendTimer] = useState(0);
-  const [incomingSms, setIncomingSms] = useState(null); // { code, phone }
-
-  useEffect(() => {
-    let t;
-    if (resendTimer > 0) {
-      t = setTimeout(() => setResendTimer(p => p - 1), 1000);
-    }
-    return () => clearTimeout(t);
-  }, [resendTimer]);
-
-  const handleSendRealOtp = async () => {
-    if (mobile.length !== 10) {
-      setErrorMsg("Please enter a valid 10-digit mobile number.");
-      return;
-    }
-    setLoading(true);
-    setErrorMsg("");
-    setStatusMsg("Connecting to carrier network...");
-
-    try {
-      const res = await sendFirebaseOtp(mobile, "recaptcha-container");
-      setConfirmationResult(res);
-      if (typeof setOtpSent === "function") {
-        setOtpSent(true);
-      }
-      setResendTimer(30);
-
-      if (res.isSimulation && res.generatedOtp) {
-        setIncomingSms({ code: res.generatedOtp, phone: "+91 " + mobile });
-        setStatusMsg(`✅ 6-digit SMS OTP dispatched to +91 ${mobile}`);
-      } else {
-        setStatusMsg(`✅ SMS OTP sent to +91 ${mobile} via Google Firebase`);
-      }
-    } catch (err) {
-      console.error("Phone Auth Error:", err);
-      setErrorMsg(err.message || "Failed to send SMS OTP. Please check your connection.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAutofillCode = (codeToFill) => {
-    const digits = codeToFill.split("").slice(0, 6);
-    if (typeof setOtp === "function") {
-      setOtp(digits);
-    } else {
-      digits.forEach((d, i) => onOtp && onOtp(d, i));
-    }
-  };
-
-  const handleVerifyRealOtp = async () => {
-    const code = otp.join("");
-    if (code.length !== 6) {
-      setErrorMsg("Please enter all 6 digits of the OTP.");
-      return;
-    }
-    setLoading(true);
-    setErrorMsg("");
-
-    try {
-      if (confirmationResult && confirmationResult.confirm) {
-        await confirmationResult.confirm(code);
-      }
-      setStatusMsg("✅ Mobile verified successfully!");
-      setIncomingSms(null);
-      if (typeof onLoginSuccess === "function") {
-        onLoginSuccess();
-      }
-    } catch (err) {
-      console.error("OTP verification error:", err);
-      setErrorMsg(err.message || "Invalid OTP code. Please check the SMS and try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+function Auth({mobile,setMobile,otpSent,otp,onOtp,onSend,onVerify,newUser,regName,setRegName,regEmail,setRegEmail,onRegister}) {
   if(newUser) return (
-    <div style={{width:"100%",maxWidth:440,margin:"0 auto",minHeight:844,background:"linear-gradient(180deg,#050D20,#0C1E40)",padding:"60px 24px 40px",display:"flex",flexDirection:"column",justifyContent:"center",gap:22}}>
+    <div style={{width:"100%",height:"100%",minHeight:844,background:"linear-gradient(180deg,#050D20,#0C1E40)",padding:"80px 24px 40px",display:"flex",flexDirection:"column",justifyContent:"center",gap:22}}>
       <div className="su">
         <div style={{color:"#00C9A7",fontSize:11,letterSpacing:2,fontWeight:600,marginBottom:8}}>👋 WELCOME TO STETHOSCO</div>
-        <div style={{fontFamily:"Playfair Display,serif",fontSize:26,color:"#fff",fontWeight:700}}>Complete Your Profile</div>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:26,color:"#fff",fontWeight:700}}>Complete Your Registration</div>
         <div style={{color:"rgba(255,255,255,0.38)",fontSize:12,marginTop:8}}>Verified with +91 {mobile} · Just a couple more details</div>
       </div>
       <div style={{display:"flex",flexDirection:"column",gap:14}}>
@@ -2772,228 +2242,45 @@ function Auth({
       </div>
       <Card style={{display:"flex",alignItems:"center",gap:12,background:"rgba(0,201,167,0.04)"}}>
         <div style={{fontSize:20}}>🔒</div>
-        <div style={{color:"rgba(255,255,255,0.38)",fontSize:11}}>Your data is encrypted end-to-end and HIPAA/DISHA compliant.</div>
+        <div style={{color:"rgba(255,255,255,0.38)",fontSize:11}}>Your data is encrypted and never shared with third parties.</div>
       </Card>
     </div>
   );
-
   return (
-    <div style={{width:"100%",maxWidth:440,margin:"0 auto",minHeight:844,background:"linear-gradient(180deg,#050D20,#0C1E40)",padding:"40px 24px 40px",display:"flex",flexDirection:"column",justifyContent:"center",gap:16}}>
-      
-      {/* Invisible reCAPTCHA container */}
-      <div id="recaptcha-container"></div>
-
-      {/* Simulated Incoming Push Notification Banner */}
-      {incomingSms && (
-        <div
-          onClick={() => handleAutofillCode(incomingSms.code)}
-          style={{
-            background: "linear-gradient(135deg, rgba(16, 37, 66, 0.95), rgba(7, 18, 38, 0.95))",
-            border: "1.5px solid rgba(0, 201, 167, 0.5)",
-            borderRadius: 16,
-            padding: "12px 14px",
-            boxShadow: "0 15px 35px rgba(0,0,0,0.6), 0 0 20px rgba(0,201,167,0.25)",
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            cursor: "pointer",
-            animation: "su 0.3s ease both"
-          }}
-        >
-          <div style={{
-            width: 38,
-            height: 38,
-            borderRadius: 10,
-            background: "rgba(0,201,167,0.2)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 20
-          }}>
-            💬
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ color: "#00C9A7", fontSize: 10.5, fontWeight: 800, letterSpacing: 0.5 }}>MESSAGES · NOW</span>
-              <span style={{ background: "#00C9A7", color: "#000", fontSize: 9, fontWeight: 900, borderRadius: 5, padding: "1px 6px" }}>TAP TO AUTOFILL</span>
-            </div>
-            <div style={{ color: "#fff", fontSize: 12, fontWeight: 600, marginTop: 2 }}>
-              Your STETHOSCO OTP is <span style={{ color: "#00C9A7", fontWeight: 900, fontSize: 14 }}>{incomingSms.code}</span>
-            </div>
-          </div>
-        </div>
-      )}
-
+    <div style={{width:"100%",height:"100%",minHeight:844,background:"linear-gradient(180deg,#050D20,#0C1E40)",padding:"80px 24px 40px",display:"flex",flexDirection:"column",justifyContent:"center",gap:26}}>
       <div className="su">
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-          <div style={{color:"#00C9A7",fontSize:11,letterSpacing:2,fontWeight:600}}>🔐 SECURE AUTHENTICATION</div>
-          <span style={{
-            background: isFirebaseConfigured() ? "rgba(0,230,118,0.15)" : "rgba(0,201,167,0.15)",
-            border: `1px solid ${isFirebaseConfigured() ? "rgba(0,230,118,0.3)" : "rgba(0,201,167,0.3)"}`,
-            borderRadius: 6,
-            padding: "2px 7px",
-            fontSize: 9,
-            fontWeight: 800,
-            color: isFirebaseConfigured() ? "#00E676" : "#00C9A7"
-          }}>
-            {isFirebaseConfigured() ? "🔥 Firebase Live SMS" : "⚡ Mobile Verified OTP"}
-          </span>
-        </div>
-        <div style={{fontFamily:"Playfair Display,serif",fontSize:26,color:"#fff",fontWeight:700}}>{otpSent?"Verify SMS OTP":"Mobile Login"}</div>
-        <div style={{color:"rgba(255,255,255,0.42)",fontSize:12,marginTop:4}}>{otpSent?`Enter the 6-digit code sent to +91 ${mobile}`:"Enter your 10-digit number to receive a secure SMS OTP"}</div>
+        <div style={{color:"#00C9A7",fontSize:11,letterSpacing:2,fontWeight:600,marginBottom:8}}>🔐 SECURE LOGIN</div>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:28,color:"#fff",fontWeight:700}}>{otpSent?"Verify OTP":"Enter Mobile"}</div>
+        <div style={{color:"rgba(255,255,255,0.38)",fontSize:12,marginTop:8}}>{otpSent?`OTP sent to +91 ${mobile}`:"We'll send a 6-digit OTP"}</div>
       </div>
-
-      {statusMsg && (
-        <div style={{background:"rgba(0,201,167,0.1)",border:"1px solid rgba(0,201,167,0.25)",borderRadius:10,padding:"9px 12px",fontSize:11.5,color:"#00C9A7"}}>
-          {statusMsg}
-        </div>
-      )}
-
-      {errorMsg && (
-        <div style={{background:"rgba(255,71,87,0.1)",border:"1px solid rgba(255,71,87,0.3)",borderRadius:10,padding:"9px 12px",fontSize:11.5,color:"#FF4757"}}>
-          ⚠️ {errorMsg}
-        </div>
-      )}
-
-      {!otpSent ? (
-        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      {!otpSent?(
+        <div style={{display:"flex",flexDirection:"column",gap:14}}>
           <div style={{background:"rgba(255,255,255,0.05)",border:"1.5px solid rgba(0,201,167,0.3)",borderRadius:13,display:"flex",alignItems:"center"}}>
             <div style={{padding:"12px 14px",color:"#00C9A7",fontWeight:700,fontSize:13,borderRight:"1px solid rgba(0,201,167,0.2)",marginRight:8}}>🇮🇳 +91</div>
-            <input
-              value={mobile}
-              onChange={e=>setMobile(e.target.value.replace(/\D/g,"").slice(0,10))}
-              type="tel"
-              placeholder="10-digit mobile number"
-              disabled={loading}
-              style={{flex:1,background:"transparent",border:"none",color:"#fff",fontSize:15,padding:"13px 8px"}}
-            />
+            <input value={mobile} onChange={e=>setMobile(e.target.value.replace(/\D/g,"").slice(0,10))} type="tel" placeholder="10-digit mobile number" style={{flex:1,background:"transparent",border:"none",color:"#fff",fontSize:15,padding:"13px 8px"}}/>
           </div>
-          <button
-            onClick={handleSendRealOtp}
-            disabled={mobile.length !== 10 || loading}
-            style={{
-              padding:"13px",
-              background: mobile.length===10 && !loading ?"linear-gradient(135deg,#0066CC,#00C9A7)":"rgba(255,255,255,0.07)",
-              border:"none",
-              borderRadius:12,
-              color: mobile.length===10 && !loading ?"#fff":"rgba(255,255,255,0.25)",
-              fontSize:15,
-              fontWeight:700,
-              cursor: mobile.length===10 && !loading ?"pointer":"not-allowed",
-              display:"flex",
-              alignItems:"center",
-              justifyContent:"center",
-              gap:8
-            }}
-          >
-            {loading ? "Sending SMS..." : "Send SMS OTP →"}
-          </button>
+          <button onClick={onSend} style={{padding:"14px",background:mobile.length===10?"linear-gradient(135deg,#0066CC,#00C9A7)":"rgba(255,255,255,0.07)",border:"none",borderRadius:12,color:mobile.length===10?"#fff":"rgba(255,255,255,0.25)",fontSize:15,fontWeight:700,cursor:"pointer"}}>Send OTP</button>
         </div>
-      ) : (
-        <div style={{display:"flex",flexDirection:"column",gap:16}}>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:20}}>
           <div style={{display:"flex",gap:7,justifyContent:"center"}}>
             {otp.map((d,i)=>(
-              <input
-                key={i}
-                id={"o"+i}
-                value={d}
-                onChange={e=>onOtp(e.target.value,i)}
-                maxLength={1}
-                type="tel"
-                disabled={loading}
-                style={{width:44,height:50,background:d?"rgba(0,201,167,0.14)":"rgba(255,255,255,0.05)",border:`1.5px solid ${d?"#00C9A7":"rgba(255,255,255,0.1)"}`,borderRadius:11,textAlign:"center",color:"#fff",fontSize:20,fontWeight:700,transition:"all .2s"}}
-              />
+              <input key={i} id={"o"+i} value={d} onChange={e=>onOtp(e.target.value,i)} maxLength={1} type="tel"
+                style={{width:46,height:52,background:d?"rgba(0,201,167,0.14)":"rgba(255,255,255,0.05)",border:`1.5px solid ${d?"#00C9A7":"rgba(255,255,255,0.1)"}`,borderRadius:11,textAlign:"center",color:"#fff",fontSize:20,fontWeight:700,transition:"all .2s"}}/>
             ))}
           </div>
-
-          <button
-            onClick={handleVerifyRealOtp}
-            disabled={otp.some(d=>!d) || loading}
-            style={{
-              padding:"13px",
-              background: otp.every(d=>d) && !loading ?"linear-gradient(135deg,#0066CC,#00C9A7)":"rgba(255,255,255,0.07)",
-              border:"none",
-              borderRadius:12,
-              color: otp.every(d=>d) && !loading ?"#fff":"rgba(255,255,255,0.25)",
-              fontSize:15,
-              fontWeight:700,
-              cursor: otp.every(d=>d) && !loading ?"pointer":"not-allowed"
-            }}
-          >
-            {loading ? "Verifying..." : "Verify & Sign In →"}
-          </button>
-
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:11.5,color:"rgba(255,255,255,0.4)"}}>
-            <span
-              onClick={() => { setOtpSent(false); setOtp(["","","","","",""]); setIncomingSms(null); setErrorMsg(""); setStatusMsg(""); }}
-              style={{cursor:"pointer",color:"rgba(255,255,255,0.6)"}}
-            >
-              ← Change Mobile
-            </span>
-            {resendTimer > 0 ? (
-              <span>Resend OTP in {resendTimer}s</span>
-            ) : (
-              <span onClick={handleSendRealOtp} style={{color:"#00C9A7",cursor:"pointer",fontWeight:600}}>Resend SMS OTP</span>
-            )}
-          </div>
+          <button onClick={onVerify} disabled={otp.some(d=>!d)} style={{padding:"14px",background:otp.every(d=>d)?"linear-gradient(135deg,#0066CC,#00C9A7)":"rgba(255,255,255,0.07)",border:"none",borderRadius:12,color:otp.every(d=>d)?"#fff":"rgba(255,255,255,0.25)",fontSize:15,fontWeight:700,cursor:otp.every(d=>d)?"pointer":"not-allowed"}}>{otp.every(d=>d)?"Verify & Enter →":`Enter all 6 digits (${otp.filter(d=>d).length}/6)`}</button>
+          <div style={{textAlign:"center",color:"rgba(255,255,255,0.32)",fontSize:12}}>Did not receive? <span onClick={onSend} style={{color:"#00C9A7",cursor:"pointer"}}>Resend OTP</span></div>
         </div>
       )}
-
-      {/* ── 1-CLICK INSTANT DEMO PROFILES ── */}
-      <div style={{
-        background: "rgba(255,255,255,0.03)",
-        border: "1px solid rgba(0, 201, 167, 0.2)",
-        borderRadius: 16,
-        padding: "14px 14px 12px"
-      }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <span style={{ color: "#00C9A7", fontSize: 10, fontWeight: 800, letterSpacing: 1 }}>⚡ 1-CLICK DEMO TEST ACCOUNTS</span>
-          <span style={{ fontSize: 9.5, color: "rgba(255,255,255,0.4)" }}>Fast access</span>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7 }}>
-          {[
-            { id: "doctor", icon: "🩺", label: "Dr. Rajesh (Cardio)", phone: "9876543210" },
-            { id: "neetpredictor", icon: "🎯", label: "Rahul (NEET 640)", phone: "9988776655" },
-            { id: "hospital", icon: "🏥", label: "Apollo Admin", phone: "9123456780" },
-            { id: "patient", icon: "🫀", label: "Priya (Patient)", phone: "9811223344" },
-            { id: "student", icon: "🎓", label: "Ananya (Student)", phone: "9765432109" },
-            { id: "admin", icon: "🛠️", label: "Central Admin", phone: "9000000001" },
-          ].map(dm => (
-            <button
-              key={dm.id}
-              onClick={() => onQuickDemo && onQuickDemo(dm.id, dm.label, dm.phone)}
-              style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: 10,
-                padding: "8px 6px",
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                cursor: "pointer",
-                textAlign: "left",
-                color: "#fff",
-                fontSize: 11,
-                fontWeight: 600,
-                transition: "all 0.15s"
-              }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = "#00C9A7"; e.currentTarget.style.background = "rgba(0,201,167,0.12)"; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
-            >
-              <span style={{ fontSize: 15 }}>{dm.icon}</span>
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dm.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
       <Card style={{display:"flex",alignItems:"center",gap:12,background:"rgba(0,201,167,0.04)"}}>
-        <div style={{fontSize:18}}>🔒</div>
-        <div style={{color:"rgba(255,255,255,0.38)",fontSize:10.5}}>Protected by Google Firebase Phone Authentication & End-to-End Encryption.</div>
+        <div style={{fontSize:20}}>🔒</div>
+        <div style={{color:"rgba(255,255,255,0.38)",fontSize:11}}>Your data is encrypted and never shared with third parties.</div>
       </Card>
     </div>
   );
 }
+
 // ══════════════════════════════════════════════════════════════════════
 // 🏠 PORTAL SHOWCASE HOME — All 20 Portals · Comprehensive Merged (v28)
 // ══════════════════════════════════════════════════════════════════════
@@ -3011,7 +2298,7 @@ function RoleSelect({onSelect}) {
   );
 
   return (
-    <div style={{width:390,minHeight:844,background:"linear-gradient(180deg,#050D20,#0A1A38)",padding:"72px 14px 100px",overflowY:"auto"}}>
+    <div style={{width:"100%",height:"100%",minHeight:844,background:"linear-gradient(180deg,#050D20,#0A1A38)",padding:"72px 14px 100px",overflowY:"auto"}}>
       {/* ── Hero Banner ── */}
       <div style={{textAlign:"center",marginBottom:18,paddingTop:4}}>
         <div style={{display:"inline-flex",alignItems:"center",gap:8,background:"rgba(0,201,167,0.08)",
@@ -3801,6 +3088,10 @@ function SNProductDetail({product, onBack, onEdit, onAddToCart, addedToast}) {
 function SNCart({cart, onRemove, onUpdateQty, onBack}) {
   const total = cart.reduce((s,c)=>s+c.price*c.qty,0);
   const [checkedOut,setCheckedOut] = useState(false);
+  const [paying,setPaying] = useState(false);
+  if(paying) return (
+    <PaymentGateway amount={total} label={`Marketplace order · ${cart.length} item${cart.length!==1?"s":""}`} portal="Marketplace" icon="🛒" accentColor="#7B1FA2" onBack={()=>setPaying(false)} onPaid={()=>{setPaying(false);setCheckedOut(true);}}/>
+  );
   if(checkedOut) return (
     <div style={{textAlign:"center",padding:"48px 20px"}}>
       <div style={{fontSize:52,marginBottom:14}}>✅</div>
@@ -3851,7 +3142,7 @@ function SNCart({cart, onRemove, onUpdateQty, onBack}) {
               <div style={{color:"#fff",fontWeight:900,fontSize:16}}>₹{total.toLocaleString()}</div>
             </div>
             <CommissionDisclosure type="marketplaceSale" amount={total}/>
-            <button onClick={()=>setCheckedOut(true)} style={{width:"100%",padding:"12px",background:"linear-gradient(135deg,#7B1FA2,#4A148C)",border:"none",borderRadius:11,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer"}}>Proceed to Checkout →</button>
+            <button onClick={()=>setPaying(true)} style={{width:"100%",padding:"12px",background:"linear-gradient(135deg,#7B1FA2,#4A148C)",border:"none",borderRadius:11,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer"}}>Proceed to Checkout →</button>
           </div>
         </>
       )}
@@ -5361,8 +4652,79 @@ function NearbyHospitalSearch({roleColor, onBack}) {
   );
 }
 
+// ── Hospital-Onboarded Doctors — the roster a hospital manages and patients ──
+// see when booking OPD. Consultation fee here follows the same dual-sided
+// platform fee model as every other doctor booking: patient pays fee +
+// platform surcharge, hospital/doctor payout has the commission deducted.
+let HOSPITAL_ONBOARDED_DOCTORS=[
+  {id:"hd1",hospitalId:"nh1",name:"Dr. Anand Rao",dept:"Cardiology",specialization:"Interventional Cardiologist",fee:1200,exp:"20 Yrs",slots:["10:00 AM","11:30 AM","3:00 PM"]},
+  {id:"hd2",hospitalId:"nh1",name:"Dr. Kavya Reddy",dept:"Oncology",specialization:"Medical Oncologist",fee:1500,exp:"14 Yrs",slots:["9:30 AM","1:00 PM"]},
+  {id:"hd3",hospitalId:"nh2",name:"Dr. Priya Menon",dept:"Neurology",specialization:"Neurologist",fee:1000,exp:"15 Yrs",slots:["9:00 AM","2:00 PM"]},
+  {id:"hd4",hospitalId:"nh3",name:"Dr. Rajan Nair",dept:"Nephrology",specialization:"Nephrologist",fee:900,exp:"12 Yrs",slots:["10:30 AM","4:00 PM"]},
+  {id:"hd5",hospitalId:"nh5",name:"Dr. Suresh Mehta",dept:"Orthopaedics",specialization:"Joint Replacement Surgeon",fee:1100,exp:"18 Yrs",slots:["11:00 AM","3:30 PM"]},
+];
 function HospitalDetailCard({hospital, onBack, roleColor}) {
   const color = roleColor || "#0066CC";
+  const [bookingDoc,setBookingDoc]=useState(null);
+  const [bookingSlot,setBookingSlot]=useState(null);
+  const [paying,setPaying]=useState(false);
+  const [confirmed,setConfirmed]=useState(null);
+  const patientPct=PLATFORM_COMMISSION.doctorBooking.patientPct;
+  const doctors=HOSPITAL_ONBOARDED_DOCTORS.filter(d=>d.hospitalId===hospital.id);
+
+  if(paying&&bookingDoc){
+    const total=Math.round(bookingDoc.fee*(1+patientPct/100));
+    return <PaymentGateway amount={total} label={`OPD: ${bookingDoc.name} · ${hospital.name}`} portal="Hospital OPD" icon="🏥" accentColor={color} onBack={()=>setPaying(false)} onPaid={()=>{
+      PATIENT_APPOINTMENTS_DB.unshift({id:"apt"+Date.now(),type:"hospital",title:bookingDoc.name,sub:`${bookingDoc.specialization} · ${hospital.name}`,date:"Upcoming",time:bookingSlot,forName:"Myself",status:"upcoming"});
+      setConfirmed({code:`APT-${Math.floor(10000+Math.random()*89999)}`,doc:bookingDoc,slot:bookingSlot});
+      setPaying(false);
+    }}/>;
+  }
+
+  if(confirmed) return (
+    <div style={{textAlign:"center",padding:"40px 16px"}}>
+      <div style={{fontSize:52,marginBottom:14}}>✅</div>
+      <div style={{color:"#fff",fontWeight:900,fontSize:17,fontFamily:"Playfair Display,serif",marginBottom:6}}>Appointment Confirmed</div>
+      <div style={{color:"rgba(255,255,255,0.45)",fontSize:12,marginBottom:18,lineHeight:1.6}}>{confirmed.doc.name} · {hospital.name}<br/>{confirmed.slot}</div>
+      <div style={{background:"rgba(255,255,255,0.04)",border:"1.5px dashed rgba(255,255,255,0.2)",borderRadius:14,padding:16,marginBottom:16,textAlign:"left"}}>
+        <div style={{display:"flex",justifyContent:"space-between"}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9}}>CONFIRMATION CODE</div><div style={{color,fontWeight:900,fontSize:14,letterSpacing:1}}>{confirmed.code}</div></div>
+      </div>
+      <div style={{background:"rgba(0,201,167,0.06)",border:"1px solid rgba(0,201,167,0.2)",borderRadius:12,padding:"12px 14px",marginBottom:20,fontSize:10,color:"rgba(255,255,255,0.5)",lineHeight:1.7,textAlign:"left"}}>
+        <div style={{color:"#00C9A7",fontWeight:700,marginBottom:6}}>📤 Receipt shared with:</div>
+        ✓ You — via WhatsApp & Email<br/>
+        ✓ {confirmed.doc.name} — via WhatsApp & Email<br/>
+        ✓ STETHOSCO Admin — for records
+      </div>
+      <MBtn onClick={onBack} style={{width:"100%"}}>Done</MBtn>
+    </div>
+  );
+
+  if(bookingDoc) return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={()=>setBookingDoc(null)}/>
+        <div style={{color:"#fff",fontWeight:800,fontSize:14}}>Book Appointment</div>
+      </div>
+      <Card style={{marginBottom:12}}>
+        <div style={{color:"#fff",fontWeight:800,fontSize:13}}>{bookingDoc.name}</div>
+        <div style={{color:"rgba(255,255,255,0.45)",fontSize:11,marginTop:2}}>{bookingDoc.specialization} · {bookingDoc.dept} · {bookingDoc.exp}</div>
+      </Card>
+      <div style={{background:"rgba(244,160,18,0.06)",border:"1px solid rgba(244,160,18,0.2)",borderRadius:11,padding:"9px 12px",marginBottom:12,fontSize:9.5,color:"rgba(255,255,255,0.45)",lineHeight:1.6}}>💰 A {patientPct}% platform fee is added to the consultation fee — shown transparently before payment.</div>
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>AVAILABLE SLOTS</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:16}}>
+        {bookingDoc.slots.map(s=>(
+          <div key={s} onClick={()=>setBookingSlot(s)} style={{padding:"9px 14px",borderRadius:9,cursor:"pointer",background:bookingSlot===s?`${color}25`:"rgba(255,255,255,0.05)",border:`1px solid ${bookingSlot===s?color:"rgba(255,255,255,0.12)"}`,color:bookingSlot===s?"#fff":"rgba(255,255,255,0.5)",fontSize:11,fontWeight:700}}>{s}</div>
+        ))}
+      </div>
+      <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,padding:13,marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><div style={{color:"rgba(255,255,255,0.5)",fontSize:11}}>Consultation Fee</div><div style={{color:"#fff",fontSize:12,fontWeight:700}}>{inr(bookingDoc.fee)}</div></div>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><div style={{color:"rgba(255,255,255,0.5)",fontSize:11}}>Platform Fee ({patientPct}%)</div><div style={{color:"#fff",fontSize:12,fontWeight:700}}>{inr(Math.round(bookingDoc.fee*patientPct/100))}</div></div>
+        <div style={{display:"flex",justifyContent:"space-between",paddingTop:8,borderTop:"1px solid rgba(255,255,255,0.08)"}}><div style={{color:color,fontSize:12,fontWeight:800}}>Total Payable</div><div style={{color,fontSize:15,fontWeight:900}}>{inr(Math.round(bookingDoc.fee*(1+patientPct/100)))}</div></div>
+      </div>
+      <MBtn onClick={()=>setPaying(true)} disabled={!bookingSlot} style={{width:"100%",background:`linear-gradient(135deg,${color},#0A1628)`}}>Continue to Payment</MBtn>
+    </div>
+  );
+
   return (
     <div>
       <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:13}}>
@@ -5404,9 +4766,30 @@ function HospitalDetailCard({hospital, onBack, roleColor}) {
       <div style={{background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:13,padding:"11px 12px",marginBottom:10}}>
         <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:8}}>🩺 SPECIALTIES & DEPARTMENTS</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-          {hospital.specialties.map(s=><span key={s} style={{background:`${color}12`,border:`1px solid ${color}22`,borderRadius:6,padding:"4px 9px",color:"rgba(255,255,255,0.6)",fontSize:10,fontWeight:600}}>{s}</span>)}
+          {[...new Set([...hospital.specialties,...doctors.map(d=>d.dept)])].map(s=><span key={s} style={{background:`${color}12`,border:`1px solid ${color}22`,borderRadius:6,padding:"4px 9px",color:"rgba(255,255,255,0.6)",fontSize:10,fontWeight:600}}>{s}</span>)}
         </div>
+        <div style={{color:"rgba(255,255,255,0.25)",fontSize:8,marginTop:6}}>Updates automatically as the hospital onboards doctors with new departments.</div>
       </div>
+
+      {/* Onboarded Doctors */}
+      {doctors.length>0&&(
+        <div style={{background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:13,padding:"11px 12px",marginBottom:10}}>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:8}}>👨‍⚕️ ONBOARDED DOCTORS — BOOK OPD</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {doctors.map(d=>(
+              <div key={d.id} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.03)",borderRadius:11,padding:10}}>
+                <div style={{width:36,height:36,borderRadius:10,background:`${color}20`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>👨‍⚕️</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{color:"#fff",fontWeight:700,fontSize:11.5}}>{d.name}</div>
+                  <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5}}>{d.specialization} · {d.dept}</div>
+                  <div style={{color:color,fontSize:9.5,fontWeight:700,marginTop:1}}>{inr(d.fee)} consultation</div>
+                </div>
+                <button onClick={()=>{setBookingDoc(d);setBookingSlot(null);}} style={{background:`linear-gradient(135deg,${color},#0A1628)`,border:"none",borderRadius:8,padding:"8px 13px",color:"#fff",fontSize:10,fontWeight:700,cursor:"pointer",flexShrink:0,fontFamily:"Outfit,sans-serif"}}>Book</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Contact */}
       <div style={{background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:13,padding:"11px 12px",marginBottom:12}}>
@@ -7429,7 +6812,7 @@ function AIHealthConcierge({role,onClose,switchRole}){
     setThinking(true);
     try{
       const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
-        model:"claude-sonnet-4-20250514",max_tokens:220,
+        model:"claude-sonnet-4-6",max_tokens:220,
         messages:[{role:"user",content:`You are STETHOSCO's AI Health Concierge inside a healthcare super-app with these sections: Doctor, Medicos, Patient (incl. AI Symptom Checker & Premium), Hospital, Pharmacy, Diagnostics, Medical Travel, E-Marketplace, Student Corner, NEET Predictor, Sponsor, Health Tracker, News & Events, Employer/Jobs, Blood Donation, Jeevandan (organ donation), Admin, YouTube, Insurance, Call Ambulance. A user just said: "${text}". Give a brief (max 3 sentences), warm, helpful reply. If they describe symptoms, remind them this isn't a diagnosis and suggest booking a doctor. Do not give specific medical dosing advice.`}]
       })});
       const d=await res.json();
@@ -7481,11 +6864,1053 @@ function AIHealthConcierge({role,onClose,switchRole}){
   );
 }
 
-function AppShell({role,activeTab,setActiveTab,onBack}) {
+// ── Settings & Account Panel — global, reachable from every portal ──
+const SETTINGS_FAQ=[
+  {q:"How is my health data protected?",a:"STETHOSCO encrypts data in transit and at rest, and only shares information with the specific hospital, doctor, or lab you choose to interact with. You can withdraw data consent anytime."},
+  {q:"How do I update my registered mobile number?",a:"Contact support with your current registered number and the new number — verification is required before the switch to protect your account."},
+  {q:"Are the NEET Predictor and AI features official?",a:"No. AI-assisted predictions, rank estimates, and health-check suggestions are informational planning tools only, not official NTA/MCC data or a medical diagnosis."},
+  {q:"How do I report a problem with a hospital, doctor, or listing?",a:"Use the 🆘 SOS button for emergencies, or Contact Support below for non-urgent complaints — our team reviews every report within 48 hours."},
+];
+// ── Invite to STETHOSCO — sent to STETHOSCO Admin, no incentive shown in-app ──
+// Admin is the concerned in-charge who reviews each referral, decides
+// whether an incentive applies based on referral type, and settles any
+// applicable amount directly and privately with the referring party.
+const REFERRAL_TRACKING_DB=[
+  {id:"r1",name:"Kavya M.",via:"WhatsApp",date:"24 Aug 2026",status:"actioned"},
+  {id:"r2",name:"Suresh K.",via:"SMS",date:"20 Aug 2026",status:"converted"},
+  {id:"r3",name:"Anita R.",via:"Link Share",date:"18 Aug 2026",status:"signed_up"},
+  {id:"r4",name:"Vikram S.",via:"WhatsApp",date:"12 Aug 2026",status:"invited"},
+  {id:"r5",name:"Deepa N.",via:"Referral Code",date:"05 Aug 2026",status:"actioned"},
+];
+const REFERRAL_STATUS_META={
+  invited:{label:"Invited",color:"#607D8B",icon:"📤"},
+  signed_up:{label:"Signed Up",color:"#4A9DFF",icon:"✅"},
+  converted:{label:"Converted",color:"#F4A012",icon:"🎯"},
+  actioned:{label:"Reviewed by Admin",color:"#00C9A7",icon:"🛡️"},
+};
+// ── Job Opening Referral — for doctors, medical professionals, hospital/company admins & HR ──
+// An informal segment: doctors, Medicos, hospital/company admins, and HR can
+// notify STETHOSCO Admin of job positions and vacancies for review and
+// listing. No incentive amount or model is shown anywhere in the app —
+// STETHOSCO Admin is the concerned in-charge who reviews each referral,
+// decides whether an incentive applies based on the type of referral, and
+// settles any applicable amount directly and privately with the referring
+// party, outside the application.
+const JOB_REFERRAL_TRACKING_DB=[
+  {id:"jr1",code:"REF-JOB-4471",org:"Kokilaben Dhirubhai Ambani Hospital",role:"Senior Cardiologist (DM)",dept:"Cardiology",positions:"1",inchargeName:"Dr. Suresh Mehta",inchargePhone:"+91 98200 55112",date:"20 Aug 2026",status:"live"},
+  {id:"jr2",code:"REF-JOB-2093",org:"Apollo Hospitals, Hyderabad",role:"ICU Staff Nurse × 4",dept:"Critical Care",positions:"4",inchargeName:"Priya Nair, HR",inchargePhone:"+91 98450 33221",date:"18 Aug 2026",status:"live"},
+  {id:"jr3",code:"REF-JOB-8815",org:"Fortis Memorial, Gurgaon",role:"Hospital Operations Manager",dept:"Administration",positions:"1",inchargeName:"Admin Office, Fortis",inchargePhone:"+91 98110 44556",date:"12 Aug 2026",status:"under_review"},
+  {id:"jr4",code:"REF-JOB-6602",org:"Rainbow Children's Hospital",role:"Pediatric Surgeon",dept:"Pediatric Surgery",positions:"1",inchargeName:"Dr. Meera Iyer",inchargePhone:"+91 98480 77990",date:"02 Aug 2026",status:"filled"},
+];
+const JOB_REFERRAL_STATUS_META={
+  submitted:{label:"Submitted",color:"#607D8B",icon:"📝"},
+  under_review:{label:"Under Review",color:"#4A9DFF",icon:"🔍"},
+  live:{label:"Live on Jobs Portal",color:"#F4A012",icon:"📢"},
+  filled:{label:"Vacancy Filled",color:"#00C9A7",icon:"✅"},
+  closed:{label:"Closed",color:"#FF4757",icon:"✕"},
+};
+// Standard turnaround timeline — how long each stage should normally take,
+// measured from the referral's submission date. Used to flag a referral as
+// on-track or overdue in both the referrer's own tracker and Admin's view.
+const JOB_REFERRAL_TIMELINE_DAYS={submitted:2,under_review:5,live:30,filled:0,closed:0};
+const JOB_REFERRAL_STAGE_ORDER=["submitted","under_review","live","filled"];
+// ── Patient Case Referral — Doctor, Medicos, Medical Travel & Ambulance ──
+// Refers an actual patient case (clinical summary + treatment advised) to a
+// receiving hospital, with a referral code, status tracking, and treatment
+// feedback. No incentive amount or model is shown anywhere in the app —
+// STETHOSCO Admin is the concerned in-charge who reviews each referral,
+// determines whether an incentive applies based on the type of referral,
+// and settles any applicable amount directly and privately with the
+// referring party. Nothing about incentive value or eligibility is
+// disclosed within the application itself.
+const PATIENT_REFERRAL_CONFIG={
+  doctor:{icon:"🩺",verticalLabel:"Doctor"},
+  medstaff:{icon:"🩹",verticalLabel:"Medico"},
+  ambulance:{icon:"🚑",verticalLabel:"Ambulance Operator"},
+  travel:{icon:"✈️",verticalLabel:"Medical Travel Coordinator"},
+};
+const REFERRAL_TARGET_HOSPITALS=["Apollo Hospitals, Mumbai","Fortis Memorial, Gurgaon","Kokilaben Dhirubhai Ambani Hospital, Mumbai","Manipal Hospital, Bengaluru","Rainbow Children's Hospital, Hyderabad","AIIMS, New Delhi"];
+const PATIENT_REFERRAL_STATUS_META={
+  sent:{label:"Sent",color:"#607D8B",icon:"📤"},
+  reviewing:{label:"Hospital Reviewing",color:"#4A9DFF",icon:"🔍"},
+  admitted:{label:"Patient Admitted",color:"#F4A012",icon:"🏥"},
+  treating:{label:"Treatment Ongoing",color:"#AB47BC",icon:"⚕️"},
+  discharged:{label:"Discharged",color:"#00C9A7",icon:"✅"},
+};
+const PATIENT_REFERRAL_DB=[
+  {id:"pr1",vertical:"doctor",code:"REF-DOC-3391",patientInitials:"A.K.",age:52,gender:"Male",complaint:"Chest pain, breathlessness on exertion",diagnosis:"Suspected NSTEMI",treatment:"Cardiology admission, angiography advised",hospital:"Kokilaben Dhirubhai Ambani Hospital, Mumbai",urgency:"Urgent",date:"22 Aug 2026",status:"discharged",hospitalContact:{name:"Neha Kulkarni",designation:"Patient Relations Officer",phone:"+91 98200 11223",email:"pro.cardiology@kokilabenhospital.com"},treatmentFeedback:"Angiography confirmed 80% LAD blockage. Angioplasty with stent placement performed successfully. Patient recovering well, discharged on Day 4 with cardiac rehab follow-up scheduled."},
+  {id:"pr2",vertical:"ambulance",code:"REF-AMB-1187",patientInitials:"R.S.",age:34,gender:"Male",complaint:"Road traffic accident, head injury",diagnosis:"Suspected traumatic brain injury",treatment:"Emergency neurosurgery evaluation",hospital:"Apollo Hospitals, Mumbai",urgency:"Emergency",date:"19 Aug 2026",status:"treating",hospitalContact:{name:"Rajesh Iyer",designation:"Emergency Ward Administrator",phone:"+91 98330 44556",email:"em.admin@apollohospitals.com"},treatmentFeedback:"CT scan showed mild subdural hematoma, managed conservatively under neurosurgery observation. Patient stable, vitals normal. Under continued monitoring."},
+  {id:"pr3",vertical:"travel",code:"REF-TRV-0552",patientInitials:"J.M. (Intl.)",age:61,gender:"Female",complaint:"Degenerative knee pain, both knees",diagnosis:"Bilateral osteoarthritis",treatment:"Bilateral total knee replacement",hospital:"Manipal Hospital, Bengaluru",urgency:"Routine",date:"10 Aug 2026",status:"admitted",hospitalContact:{name:"Ananya Das",designation:"International Patient Coordinator",phone:"+91 98450 77889",email:"intl.care@manipalhospitals.com"},treatmentFeedback:""},
+  {id:"pr4",vertical:"medstaff",code:"REF-MED-2864",patientInitials:"S.P.",age:8,gender:"Female",complaint:"High fever, rash for 3 days",diagnosis:"Suspected dengue",treatment:"Paediatric admission, platelet monitoring",hospital:"Rainbow Children's Hospital, Hyderabad",urgency:"Urgent",date:"08 Aug 2026",status:"reviewing",hospitalContact:null,treatmentFeedback:""},
+];
+const NOTIFICATION_INBOX=[
+  {id:"n1",portal:"Video Consult",icon:"🎥",text:"Dr. Suresh Mehta is available now for your booked consultation",time:"5 min ago",read:false},
+  {id:"n2",portal:"Boost",icon:"🚀",text:"Your Doctor Boost (Growth plan) renews in 3 days",time:"2 hrs ago",read:false},
+  {id:"n3",portal:"Appointments",icon:"📅",text:"Appointment with Dr. Anand Rao confirmed for tomorrow, 11:30 AM",time:"5 hrs ago",read:true},
+  {id:"n4",portal:"Wallet",icon:"💳",text:"₹2,000 added to your STETHOSCO Wallet via UPI",time:"1 day ago",read:true},
+  {id:"n5",portal:"Browse Doctors",icon:"🔔",text:"Dr. Rohan Kulkarni posted a new professional update you're subscribed to",time:"1 day ago",read:true},
+  {id:"n6",portal:"NEET Predictor",icon:"🎓",text:"3 new colleges match your predicted rank this week",time:"2 days ago",read:true},
+  {id:"n7",portal:"Insurance",icon:"🛡️",text:"Your Star Health premium payment was successful",time:"3 days ago",read:true},
+];
+const WALLET_TRANSACTIONS=[
+  {id:"w1",receiptCode:"RCT-84021",portal:"Pharmacy",icon:"💊",label:"Medicine order · Apollo Pharmacy",amount:-486,date:"26 Aug 2026",status:"Paid",processed:true},
+  {id:"w2",receiptCode:"RCT-84022",portal:"Diagnostic",icon:"🔬",label:"HbA1c + Lipid Profile booking",amount:-1240,date:"22 Aug 2026",status:"Paid",processed:true},
+  {id:"w3",receiptCode:"RCT-84023",portal:"Boost",icon:"🚀",label:"Doctor Boost — Growth plan",amount:-3999,date:"15 Aug 2026",status:"Paid",processed:true},
+  {id:"w4",receiptCode:"RCT-84024",portal:"Insurance",icon:"🛡️",label:"Health plan premium — Star Health",amount:-2150,date:"10 Aug 2026",status:"Paid",processed:true},
+  {id:"w5",receiptCode:"RCT-84025",portal:"Wallet",icon:"➕",label:"Wallet top-up via UPI",amount:2000,date:"05 Aug 2026",status:"Credited",processed:true},
+  {id:"w6",receiptCode:"RCT-84026",portal:"Ambulance",icon:"🚑",label:"ALS dispatch — emergency",amount:-1800,date:"02 Aug 2026",status:"Paid",processed:true},
+];
+
+// ══════════════════════════════════════════════════════════════════════
+// VIRTUAL DATABASE / BACKEND SERVICE LAYER
+// ──────────────────────────────────────────────────────────────────────
+// STETHOSCO runs entirely client-side in this environment — there is no
+// deployed server process, so this is not a real network-backed backend.
+// What VirtualDB provides instead is a genuine architectural separation:
+// every wallet balance change and payment transaction now flows through
+// ONE async API surface (with simulated network latency, error handling,
+// and a single source of truth) instead of being mutated directly and
+// inconsistently from wherever a component happens to need it. Any part
+// of the app reading wallet/payment state should call these functions
+// rather than touching WALLET_TRANSACTIONS or wallet balance directly —
+// this is the seam a real backend would eventually replace.
+const VirtualDB = {
+  _walletBalance: 250,
+  _listeners: [],
+
+  onBalanceChange(cb){ this._listeners.push(cb); return ()=>{ this._listeners = this._listeners.filter(l=>l!==cb); }; },
+  _notify(){ this._listeners.forEach(cb=>cb(this._walletBalance)); },
+
+  wallet: {
+    getBalance: () => new Promise(resolve => setTimeout(()=>resolve(VirtualDB._walletBalance), 150)),
+
+    credit: (amount, meta={}) => new Promise((resolve,reject) => setTimeout(()=>{
+      if(!amount || amount<=0){ reject(new Error("Invalid credit amount")); return; }
+      VirtualDB._walletBalance += amount;
+      const receiptCode = `RCT-${Math.floor(10000+Math.random()*89999)}`;
+      const entry = {id:"w"+Date.now(), receiptCode, portal: meta.portal||"Wallet", icon: meta.icon||"➕",
+        label: meta.label||"Wallet credit", amount, date:"Just now", status:"Credited", processed:true};
+      WALLET_TRANSACTIONS.unshift(entry);
+      VirtualDB._notify();
+      resolve(entry);
+    }, 900)),
+
+    debit: (amount, meta={}) => new Promise((resolve,reject) => setTimeout(()=>{
+      if(!amount || amount<=0){ reject(new Error("Invalid debit amount")); return; }
+      if(amount > VirtualDB._walletBalance && meta.requireFunds){ reject(new Error("Insufficient wallet balance")); return; }
+      const receiptCode = `RCT-${Math.floor(10000+Math.random()*89999)}`;
+      const entry = {id:"w"+Date.now(), receiptCode, portal: meta.portal||"Payment", icon: meta.icon||"💳",
+        label: meta.label||"Payment", amount:-amount, date:"Just now", status:"Paid", processed:true};
+      WALLET_TRANSACTIONS.unshift(entry);
+      if(meta.fromWalletBalance){ VirtualDB._walletBalance -= amount; VirtualDB._notify(); }
+      resolve(entry);
+    }, 900)),
+
+    getHistory: () => new Promise(resolve => setTimeout(()=>resolve([...WALLET_TRANSACTIONS]), 150)),
+  },
+
+  commissions: {
+    getRate: (type) => new Promise(resolve => setTimeout(()=>resolve(PLATFORM_COMMISSION[type]), 100)),
+    updateRate: (type, newPct, newPatientPct, reason) => new Promise((resolve,reject) => setTimeout(()=>{
+      const c = PLATFORM_COMMISSION[type];
+      if(!c){ reject(new Error("Unknown commission type")); return; }
+      if(isNaN(newPct)||newPct<c.min||newPct>c.max){ reject(new Error(`Rate must be between ${c.min}% and ${c.max}%`)); return; }
+      const oldPct = c.pct;
+      c.pct = newPct;
+      if(newPatientPct!=null && c.patientPct!=null) c.patientPct = newPatientPct;
+      c.lastUpdated = `Updated ${new Date().toISOString().slice(0,10)} · ${oldPct}% → ${newPct}%${reason?` · Reason: ${reason}`:""}`;
+      resolve(c);
+    }, 400)),
+  },
+};
+
+// ── Referral Receipt — shared across every referral type (Job, Patient, Generic) ──
+// Shows the code, submission time, an estimated process time, and status —
+// but never an incentive amount. The incentive-on-closure field is tracked
+// only on STETHOSCO Admin's dedicated referral dashboard, since Admin is the
+// concerned in-charge for settling it privately with the referring party.
+function ReferralReceipt({code,title,subtitle,onDone,roleColor="#0066CC"}){
+  return (
+    <div style={{textAlign:"center",padding:"40px 16px"}}>
+      <div style={{fontSize:52,marginBottom:14}}>✅</div>
+      <div style={{color:"#fff",fontWeight:900,fontSize:17,fontFamily:"Playfair Display,serif",marginBottom:6}}>{title}</div>
+      <div style={{color:"rgba(255,255,255,0.45)",fontSize:12,marginBottom:18,lineHeight:1.6}}>{subtitle}</div>
+      <div style={{background:"rgba(255,255,255,0.04)",border:"1.5px dashed rgba(255,255,255,0.2)",borderRadius:14,padding:16,marginBottom:16,textAlign:"left"}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:9}}>REFERRAL CODE</div>
+          <div style={{color:roleColor,fontWeight:900,fontSize:14,letterSpacing:1}}>{code}</div>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:10,paddingTop:10,borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:9}}>EXPECTED PROCESS TIME</div>
+          <div style={{color:"#fff",fontWeight:700,fontSize:11.5}}>2–3 business days</div>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",paddingTop:10,borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:9}}>CURRENT STATUS</div>
+          <div style={{color:"#607D8B",fontWeight:700,fontSize:11.5}}>📤 Sent to Admin</div>
+        </div>
+      </div>
+      <div style={{background:"rgba(244,160,18,0.06)",border:"1px solid rgba(244,160,18,0.2)",borderRadius:12,padding:"10px 13px",marginBottom:20,fontSize:9.5,color:"rgba(255,255,255,0.5)",lineHeight:1.6,textAlign:"left"}}>
+        ℹ️ If an incentive applies, STETHOSCO Admin — the concerned in-charge — will settle it directly and privately with you upon successful closure. No amount or model is disclosed within the app.
+      </div>
+      <MBtn onClick={onDone} style={{width:"100%"}}>Track My Referrals</MBtn>
+    </div>
+  );
+}
+
+function PatientReferralWidget({onBack,vertical="doctor",roleColor="#0066CC"}){
+  const cfg=PATIENT_REFERRAL_CONFIG[vertical]||PATIENT_REFERRAL_CONFIG.doctor;
+  const [view,setView]=useState("list"); // list | form | success | detail
+  const [lastCode,setLastCode]=useState("");
+  const [selected,setSelected]=useState(null);
+  const [editingContact,setEditingContact]=useState(false);
+  const [editForm,setEditForm]=useState({hospital:"",name:"",designation:"",phone:"",email:""});
+  const [form,setForm]=useState({initials:"",age:"",gender:"Male",complaint:"",diagnosis:"",treatment:"",hospital:REFERRAL_TARGET_HOSPITALS[0],useCustomHospital:false,customHospital:"",urgency:"Routine",inchargeName:"",inchargeDesignation:"",inchargePhone:"",inchargeEmail:"",notes:""});
+  const F=(k,v)=>setForm(p=>({...p,[k]:v}));
+  const [list,setList]=useState(PATIENT_REFERRAL_DB.filter(r=>r.vertical===vertical));
+
+  const submit=()=>{
+    if(!form.initials.trim()||!form.complaint.trim()) return;
+    const code=`REF-${vertical.slice(0,3).toUpperCase()}-${Math.floor(1000+Math.random()*9000)}`;
+    const hospitalName=form.useCustomHospital&&form.customHospital.trim()?form.customHospital.trim():form.hospital;
+    const providedContact=(form.inchargeName.trim())?{name:form.inchargeName,designation:form.inchargeDesignation||"Concerned In-Charge",phone:form.inchargePhone,email:form.inchargeEmail}:null;
+    PATIENT_REFERRAL_DB.unshift({id:"pr"+Date.now(),vertical,code,patientInitials:form.initials,age:+form.age||0,gender:form.gender,complaint:form.complaint,diagnosis:form.diagnosis,treatment:form.treatment,hospital:hospitalName,urgency:form.urgency,date:"Just now",status:"sent",hospitalContact:providedContact,treatmentFeedback:""});
+    setList(PATIENT_REFERRAL_DB.filter(r=>r.vertical===vertical));
+    setLastCode(code);
+    setView("success");
+  };
+
+  if(view==="success") return (
+    <ReferralReceipt code={lastCode} title="Referral Sent" subtitle={`Case referred to ${form.hospital}.`} roleColor={roleColor} onDone={()=>{setView("list");setForm({initials:"",age:"",gender:"Male",complaint:"",diagnosis:"",treatment:"",hospital:REFERRAL_TARGET_HOSPITALS[0],urgency:"Routine",notes:""});}}/>
+  );
+
+  if(view==="form") return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={()=>setView("list")}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>{cfg.icon} Refer a Patient Case</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>Sent directly to the receiving hospital</div></div>
+      </div>
+      <div style={{background:"rgba(255,71,87,0.06)",border:"1px solid rgba(255,71,87,0.2)",borderRadius:11,padding:"9px 12px",marginBottom:12,fontSize:9.5,color:"rgba(255,255,255,0.5)",lineHeight:1.5}}>🔒 Use initials only, not the full patient name. Only clinically necessary details should be shared, with the patient made aware and in agreement.</div>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div style={{display:"flex",gap:9}}>
+          <div style={{flex:1}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>PATIENT INITIALS *</div>
+            <input value={form.initials} onChange={e=>F("initials",e.target.value)} placeholder="e.g. A.K." style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+          <div style={{width:70}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>AGE</div>
+            <input type="number" value={form.age} onChange={e=>F("age",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+          <div style={{width:90}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>GENDER</div>
+            <select value={form.gender} onChange={e=>F("gender",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11,padding:"10px 6px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}>
+              <option>Male</option><option>Female</option><option>Other</option>
+            </select></div>
+        </div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>CHIEF COMPLAINT / PRESENTING PROBLEM *</div>
+          <textarea value={form.complaint} onChange={e=>F("complaint",e.target.value)} placeholder="e.g. Chest pain, breathlessness on exertion" rows={2} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",resize:"none"}}/></div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>PROVISIONAL DIAGNOSIS</div>
+          <input value={form.diagnosis} onChange={e=>F("diagnosis",e.target.value)} placeholder="e.g. Suspected NSTEMI" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>TREATMENT / PROCEDURE ADVISED</div>
+          <textarea value={form.treatment} onChange={e=>F("treatment",e.target.value)} placeholder="e.g. Cardiology admission, angiography advised" rows={2} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",resize:"none"}}/></div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>URGENCY</div>
+          <div style={{display:"flex",gap:7}}>
+            {["Routine","Urgent","Emergency"].map(u=>(
+              <div key={u} onClick={()=>F("urgency",u)} style={{flex:1,textAlign:"center",padding:"8px",borderRadius:9,cursor:"pointer",background:form.urgency===u?(u==="Emergency"?"rgba(255,71,87,0.2)":u==="Urgent"?"rgba(244,160,18,0.2)":"rgba(0,201,167,0.2)"):"rgba(255,255,255,0.04)",border:`1px solid ${form.urgency===u?(u==="Emergency"?"rgba(255,71,87,0.4)":u==="Urgent"?"rgba(244,160,18,0.4)":"rgba(0,201,167,0.4)"):"rgba(255,255,255,0.1)"}`,color:form.urgency===u?"#fff":"rgba(255,255,255,0.4)",fontSize:10.5,fontWeight:700}}>{u}</div>
+            ))}
+          </div>
+        </div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>REFER TO HOSPITAL *</div>
+          {!form.useCustomHospital?(
+            <select value={form.hospital} onChange={e=>F("hospital",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}>
+              {REFERRAL_TARGET_HOSPITALS.map(h=><option key={h}>{h}</option>)}
+            </select>
+          ):(
+            <input value={form.customHospital} onChange={e=>F("customHospital",e.target.value)} placeholder="Enter hospital / medical institute name" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+          )}
+          <div onClick={()=>F("useCustomHospital",!form.useCustomHospital)} style={{color:"#4A9DFF",fontSize:9.5,fontWeight:700,marginTop:6,cursor:"pointer"}}>{form.useCustomHospital?"← Choose from partner hospital list instead":"Not in the list? Add a different hospital →"}</div>
+        </div>
+        <div style={{background:"rgba(244,160,18,0.06)",border:"1px solid rgba(244,160,18,0.2)",borderRadius:12,padding:12}}>
+          <div style={{color:"#F4A012",fontWeight:700,fontSize:10.5,marginBottom:8}}>CONCERNED IN-CHARGE DETAILS (optional, for reference coordination)</div>
+          <div style={{color:"rgba(255,255,255,0.35)",fontSize:9,marginBottom:8,lineHeight:1.5}}>If you already know who to coordinate with at the receiving hospital, add their details here — otherwise the hospital admin/PRO will share contact details once they review the case.</div>
+          <input value={form.inchargeName} onChange={e=>F("inchargeName",e.target.value)} placeholder="In-charge name" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:8}}/>
+          <input value={form.inchargeDesignation} onChange={e=>F("inchargeDesignation",e.target.value)} placeholder="Designation (e.g. Patient Relations Officer)" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:8}}/>
+          <div style={{display:"flex",gap:9}}>
+            <input value={form.inchargePhone} onChange={e=>F("inchargePhone",e.target.value)} placeholder="Phone" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+            <input value={form.inchargeEmail} onChange={e=>F("inchargeEmail",e.target.value)} placeholder="Email" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+          </div>
+        </div>
+        <div style={{background:"rgba(74,157,255,0.06)",border:"1px solid rgba(74,157,255,0.2)",borderRadius:11,padding:"10px 13px",fontSize:10,color:"rgba(255,255,255,0.5)",lineHeight:1.6}}>
+          ℹ️ Once sent, you will be able to track the case through admission, treatment, and discharge — with feedback from the treating team.
+        </div>
+        <MBtn onClick={submit} disabled={!form.initials.trim()||!form.complaint.trim()} style={{width:"100%",background:`linear-gradient(135deg,${roleColor},#0A1628)`}}>Send Referral to Hospital</MBtn>
+      </div>
+    </div>
+  );
+
+  if(view==="detail"&&selected){
+    const r=selected;
+    const meta=PATIENT_REFERRAL_STATUS_META[r.status];
+
+    if(editingContact){
+      return (
+        <div>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+            <BackBtn onClick={()=>setEditingContact(false)}/>
+            <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>Update Referral Details</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>{r.code}</div></div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>REFERRAL HOSPITAL / MEDICAL INSTITUTE</div>
+              <input value={editForm.hospital} onChange={e=>setEditForm(p=>({...p,hospital:e.target.value}))} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+            <div style={{background:"rgba(74,157,255,0.06)",border:"1px solid rgba(74,157,255,0.2)",borderRadius:12,padding:12}}>
+              <div style={{color:"#4A9DFF",fontWeight:700,fontSize:10.5,marginBottom:8}}>CONCERNED IN-CHARGE DETAILS</div>
+              <input value={editForm.name} onChange={e=>setEditForm(p=>({...p,name:e.target.value}))} placeholder="In-charge name" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:8}}/>
+              <input value={editForm.designation} onChange={e=>setEditForm(p=>({...p,designation:e.target.value}))} placeholder="Designation" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:8}}/>
+              <div style={{display:"flex",gap:9}}>
+                <input value={editForm.phone} onChange={e=>setEditForm(p=>({...p,phone:e.target.value}))} placeholder="Phone" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+                <input value={editForm.email} onChange={e=>setEditForm(p=>({...p,email:e.target.value}))} placeholder="Email" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+              </div>
+            </div>
+            <div style={{color:"rgba(255,255,255,0.3)",fontSize:9,lineHeight:1.5,padding:"0 4px"}}>ℹ️ Keep these details current for better coordination, faster response, and access to the right expert services at the referral hospital.</div>
+            <MBtn onClick={()=>{
+              const idx=PATIENT_REFERRAL_DB.findIndex(x=>x.id===r.id);
+              if(idx>=0){
+                PATIENT_REFERRAL_DB[idx].hospital=editForm.hospital;
+                PATIENT_REFERRAL_DB[idx].hospitalContact=editForm.name.trim()?{name:editForm.name,designation:editForm.designation||"Concerned In-Charge",phone:editForm.phone,email:editForm.email}:null;
+              }
+              setList(PATIENT_REFERRAL_DB.filter(x=>x.vertical===vertical));
+              setSelected({...PATIENT_REFERRAL_DB[idx]});
+              setEditingContact(false);
+            }} style={{width:"100%",background:`linear-gradient(135deg,${roleColor},#0A1628)`}}>Save Updated Details</MBtn>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+          <BackBtn onClick={()=>setView("list")}/>
+          <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>Referral {r.code}</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>{r.hospital}</div></div>
+        </div>
+
+        <div style={{background:`${meta.color}18`,border:`1px solid ${meta.color}45`,borderRadius:14,padding:14,marginBottom:14,textAlign:"center"}}>
+          <div style={{fontSize:26,marginBottom:5}}>{meta.icon}</div>
+          <div style={{color:meta.color,fontWeight:800,fontSize:13}}>{meta.label}</div>
+        </div>
+
+        <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>TRACKING TIMELINE</div>
+        <div style={{display:"flex",flexDirection:"column",gap:0,marginBottom:16}}>
+          {["sent","reviewing","admitted","treating","discharged"].map((s,i,arr)=>{
+            const m=PATIENT_REFERRAL_STATUS_META[s];
+            const reached=arr.indexOf(r.status)>=i;
+            return (
+              <div key={s} style={{display:"flex",gap:11}}>
+                <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
+                  <div style={{width:22,height:22,borderRadius:"50%",background:reached?m.color:"rgba(255,255,255,0.08)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,flexShrink:0}}>{reached?"✓":""}</div>
+                  {i<arr.length-1&&<div style={{width:2,flex:1,minHeight:16,background:reached?m.color:"rgba(255,255,255,0.08)"}}/>}
+                </div>
+                <div style={{paddingBottom:14}}>
+                  <div style={{color:reached?"#fff":"rgba(255,255,255,0.3)",fontWeight:700,fontSize:11}}>{m.label}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:13,padding:13,marginBottom:14}}>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:800,letterSpacing:.5,marginBottom:8}}>CASE SUMMARY</div>
+          <div style={{color:"#fff",fontSize:11.5,fontWeight:700,marginBottom:2}}>{r.patientInitials} · {r.age}{r.gender[0]}</div>
+          <div style={{color:"rgba(255,255,255,0.55)",fontSize:10.5,marginBottom:6}}>{r.complaint}</div>
+          {r.diagnosis&&<div style={{color:"rgba(255,255,255,0.4)",fontSize:10}}>Diagnosis: {r.diagnosis}</div>}
+          {r.treatment&&<div style={{color:"rgba(255,255,255,0.4)",fontSize:10,marginTop:2}}>Advised: {r.treatment}</div>}
+        </div>
+
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+          <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1}}>HOSPITAL CONTACT</div>
+          <div onClick={()=>{setEditForm({hospital:r.hospital,name:r.hospitalContact?.name||"",designation:r.hospitalContact?.designation||"",phone:r.hospitalContact?.phone||"",email:r.hospitalContact?.email||""});setEditingContact(true);}} style={{color:"#F4A012",fontSize:9.5,fontWeight:700,cursor:"pointer"}}>✏️ {r.hospitalContact?"Update":"Add"} Details</div>
+        </div>
+        {r.hospitalContact?(
+          <div style={{background:"rgba(74,157,255,0.06)",border:"1px solid rgba(74,157,255,0.25)",borderRadius:13,padding:13,marginBottom:14}}>
+            <div style={{color:"rgba(255,255,255,0.35)",fontSize:9,marginBottom:4}}>{r.hospital}</div>
+            <div style={{color:"#fff",fontWeight:700,fontSize:12}}>{r.hospitalContact.name}</div>
+            <div style={{color:"#4A9DFF",fontSize:10,fontWeight:700,marginBottom:8}}>{r.hospitalContact.designation}</div>
+            <div style={{display:"flex",gap:8}}>
+              <a href={`tel:${r.hospitalContact.phone}`} style={{flex:1,textDecoration:"none"}}><div style={{background:"rgba(0,201,167,0.12)",border:"1px solid rgba(0,201,167,0.3)",borderRadius:9,padding:"8px",textAlign:"center",color:"#00C9A7",fontSize:10.5,fontWeight:700}}>📞 {r.hospitalContact.phone}</div></a>
+            </div>
+            <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginTop:7}}>✉️ {r.hospitalContact.email}</div>
+          </div>
+        ):(
+          <Card style={{textAlign:"center",padding:"18px 14px",marginBottom:14}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:10.5}}>No contact added yet — tap "Add Details" above to add the referral hospital and concerned in-charge for better coordination.</div></Card>
+        )}
+
+        <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>TREATMENT FEEDBACK</div>
+        {r.treatmentFeedback?(
+          <div style={{background:"rgba(0,201,167,0.06)",border:"1px solid rgba(0,201,167,0.25)",borderRadius:13,padding:13,color:"rgba(255,255,255,0.65)",fontSize:11,lineHeight:1.7}}>{r.treatmentFeedback}</div>
+        ):(
+          <Card style={{textAlign:"center",padding:"18px 14px"}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:10.5}}>Feedback from the treating team will appear here as the case progresses to discharge.</div></Card>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>{cfg.icon} Patient Case Referrals</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>For {cfg.verticalLabel}s · tracking & treatment feedback</div></div>
+      </div>
+
+      <div style={{background:"rgba(74,157,255,0.06)",border:"1px solid rgba(74,157,255,0.25)",borderRadius:12,padding:"11px 13px",marginBottom:14,fontSize:10,color:"rgba(255,255,255,0.55)",lineHeight:1.6}}>
+        ℹ️ Every referral is sent to STETHOSCO Admin, the concerned in-charge for review. Admin determines whether an incentive applies based on the type of referral, and settles any applicable amount directly and privately with you — incentive details are not shown within the app. Track each case from admission through discharge, with hospital contact and treatment feedback.
+      </div>
+
+      <MBtn onClick={()=>setView("form")} style={{width:"100%",marginBottom:16,background:`linear-gradient(135deg,${roleColor},#0A1628)`}}>➕ Refer a New Patient Case</MBtn>
+
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>YOUR REFERRALS</div>
+      {list.length===0&&<Card style={{textAlign:"center",padding:"24px 16px"}}><div style={{fontSize:28,marginBottom:8}}>📭</div><div style={{color:"rgba(255,255,255,0.4)",fontSize:11}}>No referrals yet</div></Card>}
+      <div style={{display:"flex",flexDirection:"column",gap:9}}>
+        {list.map(r=>{
+          const meta=PATIENT_REFERRAL_STATUS_META[r.status];
+          return (
+            <div key={r.id} onClick={()=>{setSelected(r);setView("detail");}} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:13,padding:12,cursor:"pointer"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:7}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:7}}>
+                    <span style={{color:"#fff",fontWeight:800,fontSize:11.5}}>{r.patientInitials}</span>
+                    <span style={{color:"rgba(255,255,255,0.35)",fontSize:9.5}}>{r.age}{r.gender[0]}</span>
+                    <span style={{background:r.urgency==="Emergency"?"rgba(255,71,87,0.2)":r.urgency==="Urgent"?"rgba(244,160,18,0.2)":"rgba(0,201,167,0.15)",color:r.urgency==="Emergency"?"#FF6B81":r.urgency==="Urgent"?"#F4A012":"#00C9A7",fontSize:7.5,fontWeight:800,padding:"2px 6px",borderRadius:5}}>{r.urgency.toUpperCase()}</span>
+                  </div>
+                  <div style={{color:"rgba(255,255,255,0.5)",fontSize:10,marginTop:3}}>{r.complaint}</div>
+                  <div style={{color:"rgba(255,255,255,0.3)",fontSize:9,marginTop:2}}>→ {r.hospital}</div>
+                  <div style={{color:"rgba(255,255,255,0.25)",fontSize:8.5,marginTop:3}}>Code: <span style={{color:roleColor,fontWeight:700}}>{r.code}</span> · {r.date}</div>
+                </div>
+                <div style={{background:`${meta.color}20`,border:`1px solid ${meta.color}50`,borderRadius:7,padding:"3px 8px",color:meta.color,fontSize:8,fontWeight:800,whiteSpace:"nowrap",flexShrink:0}}>{meta.icon} {meta.label}</div>
+              </div>
+              {r.hospitalContact&&<div style={{color:"#4A9DFF",fontSize:9.5,fontWeight:700,marginTop:2}}>📞 Contact: {r.hospitalContact.name} · {r.hospitalContact.designation}</div>}
+              {r.treatmentFeedback&&<div style={{color:"#00C9A7",fontSize:9,marginTop:3}}>✅ Treatment feedback available — tap to view</div>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Post a Job — direct job posting for Hospital, Pharmacy, Diagnostic, ──
+// Medical Colleges, Institutes & Research Institutes. Distinct from Job
+// Referral (an informal notice to STETHOSCO Admin): this creates the
+// organization's own listing directly, with a compliance acknowledgment to
+// keep listings accurate and non-discriminatory under Indian labor law.
+const POSTED_JOBS_DB=[];
+function PostJobWidget({onBack,orgLabel="Organization",roleColor="#0066CC"}){
+  const [view,setView]=useState("list"); // list | form | success
+  const blank={title:"",dept:"",qualifications:"",experience:"",employmentType:"Full-time",vacancies:"1",deadline:"",applyContact:"",agree:false};
+  const [form,setForm]=useState(blank);
+  const F=(k,v)=>setForm(p=>({...p,[k]:v}));
+  const [list,setList]=useState(POSTED_JOBS_DB.filter(j=>j.orgLabel===orgLabel));
+  const [editingJobId,setEditingJobId]=useState(null);
+
+  const submit=()=>{
+    if(!form.title.trim()||!form.agree) return;
+    if(editingJobId){
+      const idx=POSTED_JOBS_DB.findIndex(j=>j.id===editingJobId);
+      if(idx>=0) POSTED_JOBS_DB[idx]={...POSTED_JOBS_DB[idx],title:form.title,dept:form.dept,qualifications:form.qualifications,experience:form.experience,employmentType:form.employmentType,vacancies:form.vacancies,deadline:form.deadline,applyContact:form.applyContact};
+    }else{
+      POSTED_JOBS_DB.unshift({id:"pj"+Date.now(),orgLabel,title:form.title,dept:form.dept,qualifications:form.qualifications,experience:form.experience,employmentType:form.employmentType,vacancies:form.vacancies,deadline:form.deadline,applyContact:form.applyContact,date:"Just now",status:"active"});
+    }
+    setList(POSTED_JOBS_DB.filter(j=>j.orgLabel===orgLabel));
+    setEditingJobId(null);
+    setView(editingJobId?"list":"success");
+  };
+
+  const startEditJob=(j)=>{
+    setForm({title:j.title,dept:j.dept,qualifications:j.qualifications,experience:j.experience,employmentType:j.employmentType,vacancies:j.vacancies,deadline:j.deadline,applyContact:j.applyContact,agree:true});
+    setEditingJobId(j.id);
+    setView("form");
+  };
+
+  const closeJob=(id)=>{
+    const idx=POSTED_JOBS_DB.findIndex(j=>j.id===id);
+    if(idx>=0) POSTED_JOBS_DB[idx].status="closed";
+    setList(POSTED_JOBS_DB.filter(j=>j.orgLabel===orgLabel));
+  };
+
+  if(view==="success") return (
+    <div style={{textAlign:"center",padding:"50px 16px"}}>
+      <div style={{fontSize:52,marginBottom:14}}>✅</div>
+      <div style={{color:"#fff",fontWeight:900,fontSize:17,fontFamily:"Playfair Display,serif",marginBottom:6}}>Job Posted</div>
+      <div style={{color:"rgba(255,255,255,0.45)",fontSize:12,marginBottom:20,lineHeight:1.6}}>{form.title} is now live on the Jobs Portal.</div>
+      <MBtn onClick={()=>{setView("list");setForm(blank);}} style={{width:"100%"}}>View My Job Posts</MBtn>
+    </div>
+  );
+
+  if(view==="form") return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={()=>{setView("list");setEditingJobId(null);setForm(blank);}}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>💼 {editingJobId?"Edit Job Posting":"Post a Job"}</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>{orgLabel} · listed directly on the Jobs Portal</div></div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>JOB TITLE *</div>
+          <input value={form.title} onChange={e=>F("title",e.target.value)} placeholder="e.g. Staff Pharmacist" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+        <div style={{display:"flex",gap:9}}>
+          <div style={{flex:1}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>DEPARTMENT</div>
+            <input value={form.dept} onChange={e=>F("dept",e.target.value)} placeholder="e.g. Pharmacy" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+          <div style={{width:90}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>VACANCIES</div>
+            <input type="number" value={form.vacancies} onChange={e=>F("vacancies",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+        </div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>QUALIFICATIONS REQUIRED</div>
+          <textarea value={form.qualifications} onChange={e=>F("qualifications",e.target.value)} placeholder="e.g. B.Pharm / M.Pharm, valid state license" rows={2} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",resize:"none"}}/></div>
+        <div style={{display:"flex",gap:9}}>
+          <div style={{flex:1}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>EXPERIENCE REQUIRED</div>
+            <input value={form.experience} onChange={e=>F("experience",e.target.value)} placeholder="e.g. 2–5 years" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+          <div style={{flex:1}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>EMPLOYMENT TYPE</div>
+            <select value={form.employmentType} onChange={e=>F("employmentType",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11,padding:"10px 6px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}>
+              <option>Full-time</option><option>Part-time</option><option>Contract</option><option>Visiting / Consulting</option>
+            </select></div>
+        </div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>APPLICATION DEADLINE</div>
+          <input type="date" value={form.deadline} onChange={e=>F("deadline",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>CONTACT FOR APPLICATIONS</div>
+          <input value={form.applyContact} onChange={e=>F("applyContact",e.target.value)} placeholder="Email or phone for applicants" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+        <div onClick={()=>F("agree",!form.agree)} style={{display:"flex",gap:9,alignItems:"flex-start",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:12,padding:12,cursor:"pointer"}}>
+          <div style={{width:19,height:19,borderRadius:6,border:`1.5px solid ${form.agree?"#00C9A7":"rgba(255,255,255,0.3)"}`,background:form.agree?"#00C9A7":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}>{form.agree&&<span style={{color:"#04140F",fontSize:11,fontWeight:900}}>✓</span>}</div>
+          <div style={{color:"rgba(255,255,255,0.55)",fontSize:9.5,lineHeight:1.6}}>I confirm this listing is accurate, that {orgLabel.toLowerCase()} holds valid licensing for this role, and that hiring will comply with applicable Indian labour and equal-opportunity regulations (including the Equal Remuneration Act and POSH Act). STETHOSCO reserves the right to remove non-compliant listings.</div>
+        </div>
+        <MBtn onClick={submit} disabled={!form.title.trim()||!form.agree} style={{width:"100%",background:`linear-gradient(135deg,${roleColor},#0A1628)`}}>{editingJobId?"💾 Update Job Posting":"Post Job to Jobs Portal"}</MBtn>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>💼 Post a Job</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>{orgLabel} · direct hiring, no referral needed</div></div>
+      </div>
+
+      <MBtn onClick={()=>setView("form")} style={{width:"100%",marginBottom:16,background:`linear-gradient(135deg,${roleColor},#0A1628)`}}>➕ Post a New Job</MBtn>
+
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>YOUR JOB POSTS</div>
+      {list.length===0&&<Card style={{textAlign:"center",padding:"24px 16px"}}><div style={{fontSize:28,marginBottom:8}}>📭</div><div style={{color:"rgba(255,255,255,0.4)",fontSize:11}}>No jobs posted yet</div></Card>}
+      <div style={{display:"flex",flexDirection:"column",gap:9}}>
+        {list.map(j=>(
+          <div key={j.id} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:13,padding:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:7}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{color:"#fff",fontWeight:700,fontSize:12}}>{j.title}</div>
+                <div style={{color:"rgba(255,255,255,0.4)",fontSize:10}}>{j.dept} · {j.employmentType} · {j.vacancies} vacanc{j.vacancies!=="1"?"ies":"y"}</div>
+                <div style={{color:"rgba(255,255,255,0.3)",fontSize:9}}>{j.date}</div>
+              </div>
+              <div style={{background:j.status==="active"?"rgba(0,201,167,0.2)":"rgba(255,255,255,0.1)",border:`1px solid ${j.status==="active"?"rgba(0,201,167,0.5)":"rgba(255,255,255,0.2)"}`,borderRadius:7,padding:"3px 8px",color:j.status==="active"?"#00C9A7":"rgba(255,255,255,0.4)",fontSize:8.5,fontWeight:800,whiteSpace:"nowrap"}}>{j.status==="active"?"🟢 ACTIVE":"CLOSED"}</div>
+            </div>
+            {j.status==="active"&&(
+              <div style={{display:"flex",gap:7}}>
+                <button onClick={()=>startEditJob(j)} style={{flex:1,background:"rgba(74,157,255,0.1)",border:"1px solid rgba(74,157,255,0.25)",borderRadius:8,padding:"6px 12px",color:"#4A9DFF",fontSize:9.5,fontWeight:700,cursor:"pointer"}}>✏️ Edit</button>
+                <button onClick={()=>closeJob(j.id)} style={{flex:1,background:"rgba(255,71,87,0.08)",border:"1px solid rgba(255,71,87,0.25)",borderRadius:8,padding:"6px 12px",color:"#FF6B81",fontSize:9.5,fontWeight:700,cursor:"pointer"}}>Close Listing</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function JobReferralWidget({onBack,roleColor="#0066CC"}){
+  const [view,setView]=useState("list"); // list | form | success
+  const [form,setForm]=useState({org:"",role:"",dept:"",eligibility:"",qualifications:"",positions:"1",urgency:"Within 30 days",inchargeName:"",inchargePhone:"",inchargeEmail:""});
+  const F=(k,v)=>setForm(p=>({...p,[k]:v}));
+  const [list,setList]=useState([...JOB_REFERRAL_TRACKING_DB]);
+  const [lastCode,setLastCode]=useState("");
+
+  const submit=()=>{
+    if(!form.org.trim()||!form.role.trim()) return;
+    const code=`REF-JOB-${Math.floor(1000+Math.random()*9000)}`;
+    JOB_REFERRAL_TRACKING_DB.unshift({id:"jr"+Date.now(),code,org:form.org,role:form.role,dept:form.dept,positions:form.positions,eligibility:form.eligibility,qualifications:form.qualifications,inchargeName:form.inchargeName,inchargePhone:form.inchargePhone,inchargeEmail:form.inchargeEmail,date:"Just now",status:"submitted"});
+    setList([...JOB_REFERRAL_TRACKING_DB]);
+    setLastCode(code);
+    setView("success");
+  };
+
+  const filledCount=list.filter(j=>j.status==="filled").length;
+  const liveCount=list.filter(j=>j.status==="live"||j.status==="filled").length;
+
+  if(view==="success") return (
+    <ReferralReceipt code={lastCode} title="Job Opening Shared" subtitle={`${form.role} at ${form.org} has been sent to STETHOSCO Admin for review and listing.`} roleColor={roleColor} onDone={()=>{setView("list");setForm({org:"",role:"",dept:"",eligibility:"",qualifications:"",positions:"1",urgency:"Within 30 days",inchargeName:"",inchargePhone:"",inchargeEmail:""});}}/>
+  );
+
+  if(view==="form") return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={()=>setView("list")}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>📋 Share a Job Opening</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>Sent to STETHOSCO Admin for review</div></div>
+      </div>
+      <div style={{background:"rgba(74,157,255,0.06)",border:"1px solid rgba(74,157,255,0.2)",borderRadius:11,padding:"9px 12px",marginBottom:12,fontSize:9.5,color:"rgba(255,255,255,0.5)",lineHeight:1.5}}>ℹ️ STETHOSCO Admin is the concerned in-charge for this referral. Admin determines whether an incentive applies and settles any applicable amount directly and privately with you — incentive details are not shown within the app.</div>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>ORGANIZATION / HOSPITAL NAME *</div>
+          <input value={form.org} onChange={e=>F("org",e.target.value)} placeholder="e.g. Apollo Hospitals, Chennai" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>JOB POSITION / ROLE LISTING *</div>
+          <input value={form.role} onChange={e=>F("role",e.target.value)} placeholder="e.g. Senior Cardiologist (DM)" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+        <div style={{display:"flex",gap:9}}>
+          <div style={{flex:1}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>DEPARTMENT</div>
+            <input value={form.dept} onChange={e=>F("dept",e.target.value)} placeholder="Cardiology" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+          <div style={{flex:1}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>VACANCIES AVAILABLE</div>
+            <input type="number" value={form.positions} onChange={e=>F("positions",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+        </div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>ELIGIBILITY CRITERIA</div>
+          <textarea value={form.eligibility} onChange={e=>F("eligibility",e.target.value)} placeholder="e.g. MD/DM Cardiology, valid NMC registration, min. 8 years experience" rows={2} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",resize:"none"}}/></div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>QUALIFICATIONS REQUIRED</div>
+          <textarea value={form.qualifications} onChange={e=>F("qualifications",e.target.value)} placeholder="e.g. Cath Lab certification, ACLS, fellowship preferred" rows={2} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",resize:"none"}}/></div>
+        <div style={{background:"rgba(244,160,18,0.06)",border:"1px solid rgba(244,160,18,0.2)",borderRadius:12,padding:12}}>
+          <div style={{color:"#F4A012",fontWeight:700,fontSize:10.5,marginBottom:8}}>CONCERNED IN-CHARGE DETAILS (for STETHOSCO Admin follow-up)</div>
+          <input value={form.inchargeName} onChange={e=>F("inchargeName",e.target.value)} placeholder="In-charge name" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:8}}/>
+          <div style={{display:"flex",gap:9}}>
+            <input value={form.inchargePhone} onChange={e=>F("inchargePhone",e.target.value)} placeholder="Phone" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+            <input value={form.inchargeEmail} onChange={e=>F("inchargeEmail",e.target.value)} placeholder="Email" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+          </div>
+        </div>
+        <MBtn onClick={submit} disabled={!form.org.trim()||!form.role.trim()} style={{width:"100%",background:`linear-gradient(135deg,${roleColor},#0A1628)`}}>Submit to STETHOSCO Admin</MBtn>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>📋 Job Opening Referrals</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>For doctors, hospital admins & HR</div></div>
+      </div>
+
+      <div style={{background:"rgba(74,157,255,0.06)",border:"1px solid rgba(74,157,255,0.25)",borderRadius:12,padding:"11px 13px",marginBottom:14,fontSize:10,color:"rgba(255,255,255,0.55)",lineHeight:1.6}}>
+        ℹ️ Every referral goes to STETHOSCO Admin — the concerned in-charge for reviewing it, deciding if an incentive applies based on the referral type, and settling it privately with you. No incentive amount or model is disclosed within the app.
+      </div>
+
+      <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:13,padding:12,marginBottom:14,display:"flex",gap:16}}>
+        <div style={{flex:1,textAlign:"center"}}><div style={{color:"#4A9DFF",fontWeight:900,fontSize:18}}>{list.length}</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:9}}>Shared</div></div>
+        <div style={{flex:1,textAlign:"center"}}><div style={{color:"#F4A012",fontWeight:900,fontSize:18}}>{liveCount}</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:9}}>Listed</div></div>
+        <div style={{flex:1,textAlign:"center"}}><div style={{color:"#00C9A7",fontWeight:900,fontSize:18}}>{filledCount}</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:9}}>Filled</div></div>
+      </div>
+
+      <MBtn onClick={()=>setView("form")} style={{width:"100%",marginBottom:16,background:`linear-gradient(135deg,${roleColor},#0A1628)`}}>➕ Share a New Job Opening</MBtn>
+
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>YOUR SHARED OPENINGS</div>
+      {list.length===0&&<Card style={{textAlign:"center",padding:"24px 16px"}}><div style={{fontSize:28,marginBottom:8}}>📭</div><div style={{color:"rgba(255,255,255,0.4)",fontSize:11}}>No openings shared yet</div></Card>}
+      <div style={{display:"flex",flexDirection:"column",gap:9}}>
+        {list.map(j=>{
+          const meta=JOB_REFERRAL_STATUS_META[j.status];
+          return (
+            <div key={j.id} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:13,padding:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:7}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{color:"#fff",fontWeight:700,fontSize:12}}>{j.role}</div>
+                  <div style={{color:"rgba(255,255,255,0.4)",fontSize:10}}>{j.org}</div>
+                  <div style={{color:"rgba(255,255,255,0.3)",fontSize:9}}>Code: <span style={{color:roleColor,fontWeight:700}}>{j.code||"—"}</span> · {j.date}</div>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <div style={{background:`${meta.color}20`,border:`1px solid ${meta.color}50`,borderRadius:7,padding:"3px 8px",color:meta.color,fontSize:8.5,fontWeight:800,whiteSpace:"nowrap"}}>{meta.icon} {meta.label}</div>
+                </div>
+              </div>
+              {j.inchargeName&&<div style={{color:"#F4A012",fontSize:9.5,fontWeight:700,marginTop:2}}>👤 In-charge: {j.inchargeName}{j.inchargePhone?` · ${j.inchargePhone}`:""}</div>}
+              {j.status!=="closed"&&(()=>{
+                const stageIdx=JOB_REFERRAL_STAGE_ORDER.indexOf(j.status);
+                const expectedDays=JOB_REFERRAL_TIMELINE_DAYS[j.status];
+                const overdue=j.date!=="Just now"&&stageIdx>=0&&stageIdx<JOB_REFERRAL_STAGE_ORDER.length-1;
+                return (
+                  <div style={{marginTop:9,paddingTop:9,borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:3,marginBottom:6}}>
+                      {JOB_REFERRAL_STAGE_ORDER.map((stg,i)=>(
+                        <Fragment key={stg}>
+                          <div style={{width:8,height:8,borderRadius:"50%",background:i<=stageIdx?roleColor:"rgba(255,255,255,0.1)",flexShrink:0}}/>
+                          {i<JOB_REFERRAL_STAGE_ORDER.length-1&&<div style={{flex:1,height:2,background:i<stageIdx?roleColor:"rgba(255,255,255,0.08)"}}/>}
+                        </Fragment>
+                      ))}
+                    </div>
+                    <div style={{color:"rgba(255,255,255,0.3)",fontSize:8.5}}>Standard timeline for this stage: ~{expectedDays} day{expectedDays!==1?"s":""}{overdue?" · check with Admin if unusually delayed":""}</div>
+                  </div>
+                );
+              })()}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function SettingsPanel({role,onClose,onLogout,lang,setLang}){
+  const [notif,setNotif]=useState({email:true,sms:true,whatsapp:true,push:true});
+  const [openFaq,setOpenFaq]=useState(null);
+  const [confirmLogout,setConfirmLogout]=useState(false);
+  const [showWallet,setShowWallet]=useState(false);
+  const [showNotifs,setShowNotifs]=useState(false);
+  const [notifList,setNotifList]=useState(NOTIFICATION_INBOX);
+  const [viewInvoice,setViewInvoice]=useState(null);
+  const [showReferral,setShowReferral]=useState(false);
+  const [copiedCode,setCopiedCode]=useState(false);
+  const [invoiceDownloaded,setInvoiceDownloaded]=useState(false);
+  const [showGenericReferral,setShowGenericReferral]=useState(false);
+  const [legalDoc,setLegalDoc]=useState(null);
+  const [addingPayMethod,setAddingPayMethod]=useState(false);
+  const [newPayMethod,setNewPayMethod]=useState("");
+  const [savedPayMethods,setSavedPayMethods]=useState([]);
+  const T=translate(lang);
+  const togNotif=k=>setNotif(n=>({...n,[k]:!n[k]}));
+  const [walletBalance,setWalletBalance]=useState(250);
+  useEffect(()=>{
+    VirtualDB.wallet.getBalance().then(setWalletBalance);
+    return VirtualDB.onBalanceChange(setWalletBalance);
+  },[]);
+  const [addingFunds,setAddingFunds]=useState(false);
+  const [addAmount,setAddAmount]=useState("");
+
+  if(viewInvoice){
+    const tx=viewInvoice;
+    const gstRate=18;
+    const base=Math.round(Math.abs(tx.amount)/(1+gstRate/100));
+    const gst=Math.abs(tx.amount)-base;
+    return (
+      <div style={{position:"absolute",inset:0,zIndex:212,overflowY:"auto",background:"#070E1A",paddingTop:52}}>
+        <div style={{padding:"12px 14px 40px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+            <BackBtn onClick={()=>setViewInvoice(null)}/>
+            <div style={{color:"#fff",fontWeight:900,fontSize:16,fontFamily:"Playfair Display,serif"}}>🧾 Invoice</div>
+          </div>
+          <div style={{background:"#fff",borderRadius:16,padding:18,color:"#111"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14,borderBottom:"1px solid #eee",paddingBottom:12}}>
+              <div><div style={{fontWeight:900,fontSize:15}}>STETHOSCO</div><div style={{fontSize:9,color:"#777"}}>Pan-India Medical Ecosystem<br/>GSTIN: 27AASCS1234K1Z9</div></div>
+              <div style={{textAlign:"right"}}><div style={{fontSize:10,color:"#777"}}>Invoice No.</div><div style={{fontWeight:700,fontSize:11}}>INV-{tx.id.toUpperCase()}</div><div style={{fontSize:9,color:"#999",marginTop:2}}>{tx.date}</div></div>
+            </div>
+            <div style={{fontSize:9,color:"#777",marginBottom:3}}>BILLED TO</div>
+            <div style={{fontSize:11,fontWeight:700,marginBottom:14}}>Priya Sharma · Mumbai, Maharashtra</div>
+            <div style={{fontSize:9,color:"#777",marginBottom:6}}>DESCRIPTION</div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #eee",fontSize:11}}><span>{tx.label}</span><span>₹{base.toLocaleString("en-IN")}</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #eee",fontSize:10.5,color:"#555"}}><span>CGST @ {gstRate/2}%</span><span>₹{Math.round(gst/2).toLocaleString("en-IN")}</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"2px solid #333",fontSize:10.5,color:"#555"}}><span>SGST @ {gstRate/2}%</span><span>₹{Math.round(gst/2).toLocaleString("en-IN")}</span></div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0",fontSize:13,fontWeight:900}}><span>Total Paid</span><span>₹{Math.abs(tx.amount).toLocaleString("en-IN")}</span></div>
+            <div style={{fontSize:8.5,color:"#999",marginTop:8}}>Payment Status: {tx.status} · This is a system-generated invoice.</div>
+          </div>
+          <MBtn onClick={()=>{setInvoiceDownloaded(true);setTimeout(()=>setInvoiceDownloaded(false),2500);}} style={{width:"100%",marginTop:14,background:invoiceDownloaded?"linear-gradient(135deg,#00C9A7,#00594C)":undefined}}>{invoiceDownloaded?"✓ Invoice Ready — Saved to Downloads":"⬇️ Download PDF"}</MBtn>
+        </div>
+      </div>
+    );
+  }
+
+  if(showNotifs) return (
+    <div style={{position:"absolute",inset:0,zIndex:211,overflowY:"auto",background:"#070E1A",paddingTop:52}}>
+      <div style={{padding:"12px 14px 40px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <BackBtn onClick={()=>setShowNotifs(false)}/>
+            <div style={{color:"#fff",fontWeight:900,fontSize:16,fontFamily:"Playfair Display,serif"}}>🔔 Notifications</div>
+          </div>
+          <button onClick={()=>setNotifList(l=>l.map(n=>({...n,read:true})))} style={{background:"none",border:"none",color:"#00C9A7",fontSize:10.5,fontWeight:700,cursor:"pointer"}}>Mark all read</button>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {notifList.map(n=>(
+            <div key={n.id} onClick={()=>setNotifList(l=>l.map(x=>x.id===n.id?{...x,read:true}:x))} style={{background:n.read?"rgba(255,255,255,0.03)":"rgba(0,201,167,0.06)",border:`1px solid ${n.read?"rgba(255,255,255,0.08)":"rgba(0,201,167,0.25)"}`,borderRadius:13,padding:"11px 12px",display:"flex",gap:10,cursor:"pointer",position:"relative"}}>
+              {!n.read&&<div style={{position:"absolute",top:11,right:11,width:7,height:7,borderRadius:"50%",background:"#00C9A7"}}/>}
+              <div style={{width:32,height:32,borderRadius:10,background:"rgba(255,255,255,0.06)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{n.icon}</div>
+              <div style={{flex:1,minWidth:0,paddingRight:12}}>
+                <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:2}}>{n.portal.toUpperCase()}</div>
+                <div style={{color:"#fff",fontSize:11,lineHeight:1.5}}>{n.text}</div>
+                <div style={{color:"rgba(255,255,255,0.3)",fontSize:9,marginTop:3}}>{n.time}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  if(showReferral){
+    const code=(role.label||"USER").replace(/[^A-Za-z]/g,"").toUpperCase().slice(0,6)+"2026";
+    const link=`stethosco.app/join?ref=${code}`;
+    const counts={invited:REFERRAL_TRACKING_DB.length,signed_up:REFERRAL_TRACKING_DB.filter(r=>["signed_up","converted","actioned"].includes(r.status)).length,converted:REFERRAL_TRACKING_DB.filter(r=>["converted","actioned"].includes(r.status)).length,actioned:REFERRAL_TRACKING_DB.filter(r=>r.status==="actioned").length};
+    return (
+      <div style={{position:"absolute",inset:0,zIndex:211,overflowY:"auto",background:"#070E1A",paddingTop:52}}>
+        <div style={{padding:"12px 14px 40px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+            <BackBtn onClick={()=>setShowReferral(false)}/>
+            <div style={{color:"#fff",fontWeight:900,fontSize:16,fontFamily:"Playfair Display,serif"}}>🤝 Refer to STETHOSCO</div>
+          </div>
+
+          <div style={{background:"rgba(74,157,255,0.06)",border:"1px solid rgba(74,157,255,0.25)",borderRadius:14,padding:14,marginBottom:16,fontSize:10.5,color:"rgba(255,255,255,0.55)",lineHeight:1.6}}>
+            ℹ️ Every referral is reviewed by STETHOSCO Admin, the concerned in-charge. Admin decides whether an incentive applies based on the type of referral, and settles any applicable amount directly and privately with you — no incentive amount or model is shown within the app.
+          </div>
+
+          <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:14,padding:14,marginBottom:16}}>
+            <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:800,letterSpacing:.5,marginBottom:8}}>YOUR REFERRAL CODE</div>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
+              <div style={{flex:1,background:"rgba(244,160,18,0.1)",border:"1.5px dashed rgba(244,160,18,0.4)",borderRadius:10,padding:"10px 13px",color:"#F4A012",fontWeight:900,fontSize:16,letterSpacing:2,textAlign:"center"}}>{code}</div>
+              <button onClick={()=>{setCopiedCode(true);setTimeout(()=>setCopiedCode(false),2000);}} style={{background:copiedCode?"rgba(0,201,167,0.2)":"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:10,padding:"10px 14px",color:copiedCode?"#00C9A7":"#fff",fontSize:10.5,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>{copiedCode?"✓ Copied":"📋 Copy"}</button>
+            </div>
+            <div style={{color:"rgba(255,255,255,0.35)",fontSize:9.5,marginBottom:10}}>{link}</div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{navigator.clipboard&&navigator.clipboard.writeText(link);setCopiedCode(true);setTimeout(()=>setCopiedCode(false),2000);}} style={{flex:1,background:"linear-gradient(135deg,#25D366,#128C7E)",border:"none",borderRadius:10,padding:"10px",color:"#fff",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>🟢 Share via WhatsApp</button>
+              <button onClick={()=>{navigator.clipboard&&navigator.clipboard.writeText(link);setCopiedCode(true);setTimeout(()=>setCopiedCode(false),2000);}} style={{flex:1,background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:10,padding:"10px",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>🔗 More Options</button>
+            </div>
+          </div>
+
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7,marginBottom:16}}>
+            {[{k:"invited",v:counts.invited,l:"Invited"},{k:"signed_up",v:counts.signed_up,l:"Signed Up"},{k:"converted",v:counts.converted,l:"Converted"},{k:"actioned",v:counts.actioned,l:"Admin Reviewed"}].map(s=>(
+              <div key={s.k} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:11,padding:"9px 5px",textAlign:"center"}}>
+                <div style={{color:REFERRAL_STATUS_META[s.k].color,fontWeight:900,fontSize:15}}>{s.v}</div>
+                <div style={{color:"rgba(255,255,255,0.35)",fontSize:8}}>{s.l}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>REFERRAL TRACKING</div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {REFERRAL_TRACKING_DB.map(r=>{
+              const meta=REFERRAL_STATUS_META[r.status];
+              return (
+                <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,padding:"10px 11px"}}>
+                  <div style={{width:32,height:32,borderRadius:10,background:`${meta.color}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>{meta.icon}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{color:"#fff",fontSize:11,fontWeight:700}}>{r.name}</div>
+                    <div style={{color:"rgba(255,255,255,0.35)",fontSize:9}}>via {r.via} · {r.date}</div>
+                  </div>
+                  <div style={{color:meta.color,fontSize:9.5,fontWeight:800}}>{meta.label}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+  if(showGenericReferral) return <GenericReferralWidget onBack={()=>setShowGenericReferral(false)} role={role}/>;
+
+  if(legalDoc){
+    const LEGAL_CONTENT={
+      "Terms & Conditions":"By using STETHOSCO, you agree to our platform commission structure (disclosed transparently at every booking and vendor registration), our referral policies (every referral is reviewed by Admin, with no incentive amount disclosed in-app), and standard usage terms for all 20 portals. Full commission rates are available under Platform Commission Rates below.",
+      "Privacy Policy":"STETHOSCO collects only the data needed to provide each feature — booking details, EMR records (with your consent), and payment history. Health data is never sold to third parties. You can review and manage your consent status anytime from Settings.",
+      "Platform Commission Rates":Object.values(PLATFORM_COMMISSION).map(c=>`${c.label}: ${c.pct}%${c.patientPct!=null?` (+${c.patientPct}% patient-side)`:""}`).join("\n"),
+      "About STETHOSCO":"STETHOSCO is a pan-India medical ecosystem connecting patients, doctors, hospitals, pharmacies, diagnostics, and more across 20 role-based portals — built to bridge gaps in healthcare access with transparent commission practices and verified vendors.",
+    };
+    return (
+      <div style={{position:"absolute",inset:0,zIndex:212,overflowY:"auto",background:"#070E1A",paddingTop:52}}>
+        <div style={{padding:"12px 14px 40px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+            <BackBtn onClick={()=>setLegalDoc(null)}/>
+            <div style={{color:"#fff",fontWeight:900,fontSize:16,fontFamily:"Playfair Display,serif"}}>📄 {legalDoc}</div>
+          </div>
+          <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,padding:16,color:"rgba(255,255,255,0.65)",fontSize:11.5,lineHeight:1.8,whiteSpace:"pre-line"}}>
+            {LEGAL_CONTENT[legalDoc]}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if(addingPayMethod) return (
+    <div style={{position:"absolute",inset:0,zIndex:212,overflowY:"auto",background:"#070E1A",paddingTop:52}}>
+      <div style={{padding:"12px 14px 40px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+          <BackBtn onClick={()=>{setAddingPayMethod(false);setNewPayMethod("");}}/>
+          <div style={{color:"#fff",fontWeight:900,fontSize:16,fontFamily:"Playfair Display,serif"}}>➕ Add Payment Method</div>
+        </div>
+        <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>UPI ID OR CARD NUMBER</div>
+        <input value={newPayMethod} onChange={e=>setNewPayMethod(e.target.value)} placeholder="yourname@upi or 16-digit card number" autoFocus style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:11,color:"#fff",fontSize:13,padding:"12px 14px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:16}}/>
+        <MBtn onClick={()=>{setSavedPayMethods(m=>[...m,newPayMethod]);setAddingPayMethod(false);setNewPayMethod("");}} disabled={!newPayMethod.trim()} style={{width:"100%"}}>Save Payment Method</MBtn>
+      </div>
+    </div>
+  );
+
+  if(showWallet&&addingFunds==="pay"){
+    const amt=parseInt(addAmount,10)||0;
+    return <PaymentGateway amount={amt} label="STETHOSCO Wallet Top-up" portal="Wallet" icon="➕" isCredit={true} accentColor="#0066CC" onBack={()=>setAddingFunds(true)} onPaid={()=>{setAddingFunds(false);setAddAmount("");}}/>;
+  }
+
+  if(showWallet&&addingFunds===true) return (
+    <div style={{position:"absolute",inset:0,zIndex:212,overflowY:"auto",background:"#070E1A",paddingTop:52}}>
+      <div style={{padding:"12px 14px 40px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+          <BackBtn onClick={()=>{setAddingFunds(false);setAddAmount("");}}/>
+          <div style={{color:"#fff",fontWeight:900,fontSize:16,fontFamily:"Playfair Display,serif"}}>➕ Add Money to Wallet</div>
+        </div>
+        <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>AMOUNT (₹)</div>
+        <input type="number" value={addAmount} onChange={e=>setAddAmount(e.target.value)} placeholder="Enter amount" autoFocus style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:11,color:"#fff",fontSize:18,fontWeight:700,padding:"12px 14px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:14}}/>
+        <div style={{display:"flex",gap:8,marginBottom:20}}>
+          {[500,1000,2000,5000].map(v=>(
+            <div key={v} onClick={()=>setAddAmount(String(v))} style={{flex:1,textAlign:"center",padding:"9px",borderRadius:9,background:"rgba(0,102,204,0.12)",border:"1px solid rgba(0,102,204,0.3)",color:"#4A9DFF",fontSize:11,fontWeight:700,cursor:"pointer"}}>₹{v}</div>
+          ))}
+        </div>
+        <MBtn onClick={()=>setAddingFunds("pay")} disabled={!addAmount||parseInt(addAmount,10)<=0} style={{width:"100%"}}>Continue to Payment</MBtn>
+      </div>
+    </div>
+  );
+
+  if(showWallet) return (
+    <div style={{position:"absolute",inset:0,zIndex:211,overflowY:"auto",background:"#070E1A",paddingTop:52}}>
+      <div style={{padding:"12px 14px 40px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+          <BackBtn onClick={()=>setShowWallet(false)}/>
+          <div style={{color:"#fff",fontWeight:900,fontSize:16,fontFamily:"Playfair Display,serif"}}>💳 Wallet & Payments</div>
+        </div>
+        <div style={{background:"linear-gradient(135deg,#0066CC,#5E35B1)",borderRadius:18,padding:18,marginBottom:16}}>
+          <div style={{color:"rgba(255,255,255,0.65)",fontSize:10.5}}>STETHOSCO Wallet Balance</div>
+          <div style={{color:"#fff",fontWeight:900,fontSize:26,marginTop:4}}>₹{walletBalance.toLocaleString("en-IN")}</div>
+          <button onClick={()=>setAddingFunds(true)} style={{marginTop:12,background:"rgba(255,255,255,0.18)",border:"none",borderRadius:10,padding:"9px 16px",color:"#fff",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>+ Add Money</button>
+        </div>
+        <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>SAVED PAYMENT METHODS</div>
+        <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,padding:4,marginBottom:18}}>
+          {[{ic:"📱",l:"UPI",v:"priya.sharma@okhdfcbank"},{ic:"💳",l:"Card",v:"•••• •••• •••• 4821 (Visa)"}].map((p,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"11px 9px",borderBottom:i===0?"1px solid rgba(255,255,255,0.05)":"none"}}>
+              <span style={{fontSize:16}}>{p.ic}</span>
+              <div style={{flex:1}}><div style={{color:"#fff",fontSize:11.5,fontWeight:700}}>{p.l}</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:9.5}}>{p.v}</div></div>
+              <span style={{color:"rgba(255,255,255,0.25)",fontSize:12}}>›</span>
+            </div>
+          ))}
+          <div onClick={()=>setAddingPayMethod(true)} style={{padding:"11px 9px",color:"#4A9DFF",fontSize:11,fontWeight:700,cursor:"pointer"}}>+ Add Payment Method</div>
+        </div>
+        <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>TRANSACTION HISTORY — ALL PORTALS</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {WALLET_TRANSACTIONS.map(tx=>(
+            <div key={tx.id} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,padding:"10px 11px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div style={{width:32,height:32,borderRadius:10,background:tx.amount>0?"rgba(0,201,167,0.15)":"rgba(255,255,255,0.06)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{tx.icon}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{color:"#fff",fontSize:11,fontWeight:600}}>{tx.label}</div>
+                  <div style={{color:"rgba(255,255,255,0.35)",fontSize:9}}>{tx.portal} · {tx.date} · {tx.status}</div>
+                  {tx.receiptCode&&<div style={{color:"rgba(255,255,255,0.3)",fontSize:8.5,marginTop:1}}>Receipt: {tx.receiptCode} {tx.processed&&<span style={{color:"#00C9A7"}}>· ✅ Processed by Admin</span>}</div>}
+                </div>
+                <div style={{color:tx.amount>0?"#00C9A7":"#fff",fontWeight:800,fontSize:12,flexShrink:0}}>{tx.amount>0?"+":""}₹{Math.abs(tx.amount).toLocaleString("en-IN")}</div>
+              </div>
+              {tx.amount<0&&<div onClick={()=>setViewInvoice(tx)} style={{marginTop:8,paddingTop:8,borderTop:"1px solid rgba(255,255,255,0.06)",color:"#4A9DFF",fontSize:9.5,fontWeight:700,cursor:"pointer"}}>🧾 View / Download GST Invoice</div>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{position:"absolute",inset:0,zIndex:210,overflowY:"auto",background:"#070E1A",paddingTop:52}}>
+      <div style={{padding:"12px 14px 90px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+          <div><div style={{color:"#fff",fontWeight:900,fontSize:18,fontFamily:"Playfair Display,serif"}}>{T("Settings & Account")}</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginTop:2}}>{role.icon} {role.label}</div></div>
+          <div onClick={onClose} style={{width:34,height:34,borderRadius:10,background:"rgba(255,255,255,0.07)",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:16,color:"rgba(255,255,255,0.6)"}}>✕</div>
+        </div>
+
+        <div onClick={()=>setShowReferral(true)} style={{background:"linear-gradient(135deg,rgba(244,160,18,0.18),rgba(230,81,0,0.1))",border:"1px solid rgba(244,160,18,0.35)",borderRadius:14,padding:"13px 14px",marginBottom:10,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+          <div style={{width:38,height:38,borderRadius:11,background:"rgba(255,255,255,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>🔗</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{color:"#fff",fontWeight:800,fontSize:12.5}}>Invite to STETHOSCO</div>
+            <div style={{color:"rgba(255,255,255,0.5)",fontSize:9.5,marginTop:1}}>{REFERRAL_TRACKING_DB.filter(r=>r.status==="actioned").length} reviewed by Admin · incentives settled privately</div>
+          </div>
+          <div style={{color:"rgba(255,255,255,0.3)",fontSize:18,flexShrink:0}}>›</div>
+        </div>
+
+        <div onClick={()=>setShowGenericReferral(true)} style={{background:"linear-gradient(135deg,rgba(0,102,204,0.18),rgba(94,53,177,0.1))",border:"1px solid rgba(0,102,204,0.35)",borderRadius:14,padding:"13px 14px",marginBottom:10,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+          <div style={{width:38,height:38,borderRadius:11,background:"rgba(255,255,255,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>🤝</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{color:"#fff",fontWeight:800,fontSize:12.5}}>Refer an Opportunity to Admin</div>
+            <div style={{color:"rgba(255,255,255,0.5)",fontSize:9.5,marginTop:1}}>A job, a patient case, a lead — reviewed & settled privately by Admin</div>
+          </div>
+          <div style={{color:"rgba(255,255,255,0.3)",fontSize:18,flexShrink:0}}>›</div>
+        </div>
+
+        <div onClick={()=>setShowWallet(true)} style={{background:"linear-gradient(135deg,rgba(0,102,204,0.18),rgba(94,53,177,0.12))",border:"1px solid rgba(0,102,204,0.3)",borderRadius:14,padding:"13px 14px",marginBottom:10,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+          <div style={{width:38,height:38,borderRadius:11,background:"rgba(255,255,255,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>💳</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{color:"#fff",fontWeight:800,fontSize:12.5}}>Wallet & Payments</div>
+            <div style={{color:"rgba(255,255,255,0.5)",fontSize:9.5,marginTop:1}}>Balance: ₹{walletBalance} · {WALLET_TRANSACTIONS.length} transactions across all portals</div>
+          </div>
+          <div style={{color:"rgba(255,255,255,0.3)",fontSize:18,flexShrink:0}}>›</div>
+        </div>
+
+        <div onClick={()=>setShowNotifs(true)} style={{background:"linear-gradient(135deg,rgba(0,201,167,0.16),rgba(0,137,123,0.1))",border:"1px solid rgba(0,201,167,0.3)",borderRadius:14,padding:"13px 14px",marginBottom:16,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+          <div style={{width:38,height:38,borderRadius:11,background:"rgba(255,255,255,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>🔔</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{color:"#fff",fontWeight:800,fontSize:12.5}}>Notifications</div>
+            <div style={{color:"rgba(255,255,255,0.5)",fontSize:9.5,marginTop:1}}>{notifList.filter(n=>!n.read).length} unread · across every portal</div>
+          </div>
+          <div style={{color:"rgba(255,255,255,0.3)",fontSize:18,flexShrink:0}}>›</div>
+        </div>
+
+        <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>🔔 {T("Notification Preferences").toUpperCase()}</div>
+        <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,padding:4,marginBottom:16}}>
+          {[["email","📧","Email"],["sms","💬","SMS"],["whatsapp","🟢","WhatsApp"],["push","🔔","Push Notifications"]].map(([k,ic,l],i)=>(
+            <div key={k} onClick={()=>togNotif(k)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 9px",cursor:"pointer",borderBottom:i<3?"1px solid rgba(255,255,255,0.05)":"none"}}>
+              <span style={{fontSize:15}}>{ic}</span>
+              <span style={{flex:1,color:"#fff",fontSize:12,fontWeight:600}}>{l}</span>
+              <div style={{width:38,height:22,borderRadius:20,background:notif[k]?"#00C9A7":"rgba(255,255,255,0.12)",position:"relative",transition:"background .2s"}}>
+                <div style={{width:18,height:18,borderRadius:"50%",background:"#fff",position:"absolute",top:2,left:notif[k]?18:2,transition:"left .2s"}}/>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>🔒 {T("Privacy & Consent").toUpperCase()}</div>
+        <div style={{background:"rgba(0,201,167,0.05)",border:"1px solid rgba(0,201,167,0.2)",borderRadius:14,padding:13,marginBottom:16}}>
+          {SELF_CONSENT_CLAUSES.map(c=>(
+            <div key={c.id} style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
+              <span style={{color:"#00C9A7",fontSize:11}}>✓</span>
+              <span style={{color:"rgba(255,255,255,0.6)",fontSize:10.5,flex:1}}>{c.title}</span>
+            </div>
+          ))}
+          <div style={{color:"rgba(255,255,255,0.35)",fontSize:9,marginTop:6,lineHeight:1.5}}>All consents currently granted. Withdrawing a required consent will sign you out and limit access until re-confirmed.</div>
+        </div>
+
+        <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>🌐 {T("Language").toUpperCase()}</div>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:8}}>
+          {APP_LANGUAGES.map(l=>(
+            <div key={l.code} onClick={()=>setLang(l.code)} style={{padding:"7px 13px",borderRadius:50,cursor:"pointer",fontSize:10.5,fontWeight:700,background:lang===l.code?"rgba(0,201,167,0.18)":"rgba(255,255,255,0.04)",border:`1px solid ${lang===l.code?"rgba(0,201,167,0.4)":"rgba(255,255,255,0.1)"}`,color:lang===l.code?"#00C9A7":"rgba(255,255,255,0.4)"}}>{l.native}</div>
+          ))}
+        </div>
+        <div style={{color:"rgba(255,255,255,0.25)",fontSize:8.5,marginBottom:16,lineHeight:1.5}}>Applies to navigation, headers & this Settings screen. Deep portal content is being translated progressively.</div>
+
+        <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>❓ {T("Help & Support").toUpperCase()}</div>
+        <div style={{marginBottom:16}}>
+          {SETTINGS_FAQ.map((f,i)=>(
+            <div key={i} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,padding:11,marginBottom:7}}>
+              <div onClick={()=>setOpenFaq(o=>o===i?null:i)} style={{display:"flex",justifyContent:"space-between",alignItems:"center",cursor:"pointer"}}>
+                <span style={{color:"#fff",fontSize:11,fontWeight:700,flex:1}}>{f.q}</span>
+                <span style={{color:"rgba(255,255,255,0.3)",fontSize:12,transform:openFaq===i?"rotate(180deg)":"none",transition:"transform .2s"}}>⌄</span>
+              </div>
+              {openFaq===i&&<div style={{color:"rgba(255,255,255,0.5)",fontSize:10,lineHeight:1.6,marginTop:7}}>{f.a}</div>}
+            </div>
+          ))}
+          <div style={{display:"flex",gap:8,marginTop:9}}>
+            <a href="mailto:support@stethosco.in" style={{flex:1,textDecoration:"none"}}><div style={{background:"rgba(74,157,255,0.1)",border:"1px solid rgba(74,157,255,0.3)",borderRadius:11,padding:"10px",textAlign:"center",color:"#4A9DFF",fontSize:10.5,fontWeight:700}}>📧 Email Support</div></a>
+            <a href="tel:+911800123456" style={{flex:1,textDecoration:"none"}}><div style={{background:"rgba(0,201,167,0.1)",border:"1px solid rgba(0,201,167,0.3)",borderRadius:11,padding:"10px",textAlign:"center",color:"#00C9A7",fontSize:10.5,fontWeight:700}}>📞 Call Support</div></a>
+          </div>
+        </div>
+
+        <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>📄 {T("Legal").toUpperCase()}</div>
+        <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,padding:4,marginBottom:20}}>
+          {["Terms & Conditions","Privacy Policy","Platform Commission Rates","About STETHOSCO"].map((l,i)=>(
+            <div key={l} onClick={()=>setLegalDoc(l)} style={{display:"flex",alignItems:"center",gap:9,padding:"11px 9px",cursor:"pointer",borderBottom:i<3?"1px solid rgba(255,255,255,0.05)":"none"}}>
+              <span style={{flex:1,color:"rgba(255,255,255,0.7)",fontSize:11.5}}>{l}</span>
+              <span style={{color:"rgba(255,255,255,0.25)",fontSize:13}}>›</span>
+            </div>
+          ))}
+        </div>
+
+        <div style={{color:"rgba(255,255,255,0.2)",fontSize:9.5,textAlign:"center",marginBottom:16}}>STETHOSCO v29 · Pan-India Medical Ecosystem</div>
+
+        {!confirmLogout ? (
+          <button onClick={()=>setConfirmLogout(true)} style={{width:"100%",padding:"13px",background:"rgba(255,71,87,0.1)",border:"1.5px solid rgba(255,71,87,0.35)",borderRadius:13,color:"#FF6B81",fontSize:12.5,fontWeight:800,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>🚪 {T("Log Out")}</button>
+        ) : (
+          <div style={{background:"rgba(255,71,87,0.08)",border:"1.5px solid rgba(255,71,87,0.3)",borderRadius:13,padding:13}}>
+            <div style={{color:"#fff",fontSize:11.5,fontWeight:700,marginBottom:10,textAlign:"center"}}>Log out of STETHOSCO?</div>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>setConfirmLogout(false)} style={{flex:1,padding:"11px",background:"rgba(255,255,255,0.08)",border:"none",borderRadius:10,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>Cancel</button>
+              <button onClick={onLogout} style={{flex:1,padding:"11px",background:"linear-gradient(135deg,#FF4757,#B71C1C)",border:"none",borderRadius:10,color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>Yes, Log Out</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AppShell({role,activeTab,setActiveTab,onBack,onLogout,lang,setLang}) {
   const [showHub,setShowHub]=useState(false);
   const [showAppShare,setShowAppShare]=useState(false);
   const [showSOS,setShowSOS]=useState(false);
   const [showConcierge,setShowConcierge]=useState(false);
+  const [showSettings,setShowSettings]=useState(false);
   const navMap={
     doctor:[{id:"dashboard",icon:"📊",label:"Home"},{id:"availability",icon:"📅",label:"Schedule"},{id:"earnings",icon:"💰",label:"Earnings"},{id:"emr",icon:"📋",label:"EMR"},{id:"aijobs",icon:"🤖",label:"AI Jobs"},{id:"profile",icon:"👤",label:"Profile"}],
     medical:[{id:"dashboard",icon:"📊",label:"Home"},{id:"sharep",icon:"🔗",label:"Share Profile"},{id:"aijobs",icon:"🤖",label:"AI Jobs"},{id:"nearby",icon:"📍",label:"Nearby"},{id:"profile",icon:"👤",label:"Profile"}],
@@ -7509,8 +7934,9 @@ function AppShell({role,activeTab,setActiveTab,onBack}) {
     ambulance:[{id:"dashboard",icon:"🏠",label:"Home"},{id:"aggregators",icon:"📊",label:"Aggregators"},{id:"register",icon:"➕",label:"Register"},{id:"emergency",icon:"🚨",label:"Emergency"},{id:"nearby",icon:"📍",label:"Nearby"}]
   };
   const tabs=navMap[role.id]||navMap.doctor;
+  const T=translate(lang);
   return (
-    <div style={{width:390,height:844,background:"#070E1A",display:"flex",flexDirection:"column",position:"relative",overflow:"hidden"}}>
+    <div style={{width:"100%",height:"100%",background:"#070E1A",display:"flex",flexDirection:"column",position:"relative",overflow:"hidden"}}>
       {/* Header */}
       <div style={{background:"linear-gradient(135deg,#050D20,#0C1E40)",padding:"50px 16px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid rgba(255,255,255,0.05)",flexShrink:0}}>
         <div style={{display:"flex",alignItems:"center",gap:9}}>
@@ -7525,9 +7951,10 @@ function AppShell({role,activeTab,setActiveTab,onBack}) {
           <EventNotifBell role={role} setActiveTab={setActiveTab}/>
           <div onClick={()=>setShowAppShare(true)} style={{width:32,height:32,borderRadius:9,background:"rgba(255,255,255,0.07)",border:"1px solid transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,cursor:"pointer",title:"Share App"}}>🔗</div>
           <div onClick={()=>setShowHub(h=>!h)} style={{width:32,height:32,borderRadius:9,background:showHub?"rgba(0,201,167,0.2)":"rgba(255,255,255,0.07)",border:showHub?"1px solid rgba(0,201,167,0.4)":"1px solid transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,cursor:"pointer",title:"Portal Hub"}}>🌐</div>
-          <div style={{width:32,height:32,borderRadius:9,background:`linear-gradient(135deg,${role.color},${role.color}80)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>{role.icon}</div>
+          <div onClick={()=>setShowSettings(true)} style={{width:32,height:32,borderRadius:9,background:`linear-gradient(135deg,${role.color},${role.color}80)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,cursor:"pointer"}} title="Settings & Account">{role.icon}</div>
         </div>
       </div>
+      {showSettings && <SettingsPanel role={role} onClose={()=>setShowSettings(false)} onLogout={()=>{setShowSettings(false);onLogout&&onLogout();}} lang={lang} setLang={setLang}/>}
       {showAppShare && <AppShareModal role={role} onClose={()=>setShowAppShare(false)}/>}
       {showSOS && <EmergencySOSModal onClose={()=>setShowSOS(false)} onGoToAmbulance={()=>{setShowSOS(false);const r=ROLES.find(x=>x.id==="ambulance");if(r&&__switchRole)__switchRole(r);}}/>}
       {/* AI Health Concierge — floating, app-wide */}
@@ -7609,7 +8036,7 @@ function AppShell({role,activeTab,setActiveTab,onBack}) {
         {tabs.map(t=>(
           <div key={t.id} onClick={()=>setActiveTab(t.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"6px 8px",cursor:"pointer",borderBottom:`2.5px solid ${activeTab===t.id?role.color:"transparent"}`,minWidth:40}}>
             <div style={{fontSize:18}}>{t.icon}</div>
-            <div style={{fontSize:9,color:activeTab===t.id?role.color:"rgba(255,255,255,0.32)",fontWeight:activeTab===t.id?700:400}}>{t.label}</div>
+            <div style={{fontSize:9,color:activeTab===t.id?role.color:"rgba(255,255,255,0.32)",fontWeight:activeTab===t.id?700:400}}>{T(t.label)}</div>
           </div>
         ))}
       </div>
@@ -7650,6 +8077,10 @@ function DoctorPortal({tab,setTab}) {
   if(tab==="proalerts") return <ProJobAlertsSubscription onBack={()=>setTab("dashboard")} audienceLabel="Doctors" defaultPlan="hotjobs"/>;
   if(tab==="nearby") return <NearbyHospitalSearch roleColor="#0066CC" onBack={()=>setTab("dashboard")}/>;
   if(tab==="boost") return <BoostCenter vertical="doctor" onBack={()=>setTab("dashboard")}/>;
+  if(tab==="browse") return <BrowseDoctors onBack={()=>setTab("dashboard")} roleColor="#0066CC"/>;
+  if(tab==="jobreferral") return <JobReferralWidget onBack={()=>setTab("dashboard")} roleColor="#0066CC"/>;
+  if(tab==="patientreferral") return <PatientReferralWidget onBack={()=>setTab("dashboard")} vertical="doctor" roleColor="#0066CC"/>;
+  if(tab==="teleconsult") return <DoctorTeleconsultQueue onBack={()=>setTab("dashboard")}/>;
   return <DoctorDashboard setTab={setTab}/>;
 }
 
@@ -7732,8 +8163,22 @@ const PATIENT_INSURANCE_SEED = {
 // 🏠 HOME WIDGETS — Medical Travel · Blood Donation · News & Events
 // Shown on all major role dashboards. Tapping switches to that portal.
 // ═══════════════════════════════════════════════════════════════════════
+const HOME_WIDGET_OPTIONS=[
+  {id:"travel",label:"Medical Travel",icon:"✈️"},
+  {id:"blooddiag",label:"Blood Donation & Diagnostics",icon:"🩸"},
+  {id:"pharmins",label:"Pharmacy & Insurance",icon:"💊"},
+  {id:"hospvendor",label:"Hospital Vendors",icon:"🏥"},
+  {id:"healthtracker",label:"Health Tracker",icon:"❤️"},
+  {id:"knowledge",label:"News, Events & Research",icon:"📰"},
+  {id:"sponsor",label:"Sponsor a Medico",icon:"🎓"},
+  {id:"profportals",label:"Professional Portals",icon:"🩺"},
+];
 function HomeWidgets() {
   const sw=(id)=>{const r=ROLES.find(x=>x.id===id);if(r&&__switchRole)__switchRole(r);};
+  const [selectedWidgets,setSelectedWidgets]=useState(HOME_WIDGET_OPTIONS.map(w=>w.id));
+  const [showCustomize,setShowCustomize]=useState(false);
+  const has=(id)=>selectedWidgets.includes(id);
+  const toggleWidget=(id)=>setSelectedWidgets(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id]);
   const TW=new Date("2026-02-23");
   const urgEvs=RESEARCH_EVENTS.filter(ev=>{const d=Math.ceil((new Date(ev.date)-TW)/(864e5));return d>=0&&d<=15;});
   const critReqs=BLOOD_REQUESTS.filter(r=>r.urgency==="CRITICAL");
@@ -7748,12 +8193,36 @@ function HomeWidgets() {
     </div>
   );
 
+  if(showCustomize) return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={()=>setShowCustomize(false)}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>🎛️ Customize Home Widgets</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>Choose which of the 8 widgets appear on your home screen</div></div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:9}}>
+        {HOME_WIDGET_OPTIONS.map(w=>(
+          <div key={w.id} onClick={()=>toggleWidget(w.id)} style={{display:"flex",alignItems:"center",gap:11,background:has(w.id)?"rgba(0,201,167,0.08)":"rgba(255,255,255,0.03)",border:`1px solid ${has(w.id)?"rgba(0,201,167,0.3)":"rgba(255,255,255,0.08)"}`,borderRadius:13,padding:12,cursor:"pointer"}}>
+            <div style={{fontSize:20,flexShrink:0}}>{w.icon}</div>
+            <div style={{flex:1,color:"#fff",fontWeight:700,fontSize:12}}>{w.label}</div>
+            <div style={{width:22,height:22,borderRadius:7,border:`1.5px solid ${has(w.id)?"#00C9A7":"rgba(255,255,255,0.25)"}`,background:has(w.id)?"#00C9A7":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{has(w.id)&&<span style={{color:"#04140F",fontSize:13,fontWeight:900}}>✓</span>}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{color:"rgba(255,255,255,0.3)",fontSize:9,marginTop:12,textAlign:"center"}}>{selectedWidgets.length} of 8 widgets selected</div>
+    </div>
+  );
+
   return (
     <div style={{display:"flex",flexDirection:"column",marginBottom:4}}>
+
+      <div onClick={()=>setShowCustomize(true)} style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:5,cursor:"pointer",marginBottom:6}}>
+        <span style={{color:"rgba(255,255,255,0.35)",fontSize:9.5,fontWeight:700}}>🎛️ Customize Widgets</span>
+      </div>
 
       <S label="MEDICAL PORTALS" color="#0066CC"/>
 
       {/* Travel – hero */}
+      {has("travel")&&(
       <div onClick={()=>sw("travel")} style={{background:"linear-gradient(135deg,#003D36,#00574A,#006052)",border:"1px solid rgba(0,137,123,0.3)",borderRadius:18,padding:14,cursor:"pointer",position:"relative",overflow:"hidden",marginBottom:8}}>
         <div style={{position:"absolute",top:-18,right:-18,width:80,height:80,borderRadius:"50%",background:"rgba(0,201,167,0.1)"}}/>
         <div style={{position:"relative"}}>
@@ -7777,8 +8246,9 @@ function HomeWidgets() {
           </div>
         </div>
       </div>
+      )}
 
-      {/* Blood + Diagnostic */}
+      {has("blooddiag")&&(
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
         <div onClick={()=>sw("blood")} style={{background:"linear-gradient(135deg,#2D0000,#4A0000)",border:"1px solid rgba(229,57,53,0.28)",borderRadius:16,padding:"13px 12px",cursor:"pointer",position:"relative",overflow:"hidden"}}>
           <div style={{position:"absolute",right:-10,top:-10,width:50,height:50,borderRadius:"50%",background:"rgba(229,57,53,0.1)"}}/>
@@ -7803,8 +8273,9 @@ function HomeWidgets() {
           </div>
         </div>
       </div>
+      )}
 
-      {/* Pharmacy + Insurance */}
+      {has("pharmins")&&(
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
         <div onClick={()=>sw("pharmacy")} style={{background:"linear-gradient(135deg,#001A08,#002B12)",border:"1px solid rgba(46,125,50,0.25)",borderRadius:16,padding:"13px 12px",cursor:"pointer",position:"relative",overflow:"hidden"}}>
           <div style={{position:"absolute",right:-10,top:-10,width:50,height:50,borderRadius:"50%",background:"rgba(46,125,50,0.12)"}}/>
@@ -7823,8 +8294,9 @@ function HomeWidgets() {
           <div style={{color:"#4CAF50",fontSize:9,fontWeight:700,marginTop:2}}>✅ Gold Plan Active</div>
         </div>
       </div>
+      )}
 
-      {/* Hospital Vendor Registration Banner */}
+      {has("hospvendor")&&(
       <div onClick={()=>sw("hospital")} style={{background:"linear-gradient(135deg,#0D0520,#180838,#0F0530)",border:"1px solid rgba(94,53,177,0.28)",borderRadius:16,padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:11,marginBottom:8,position:"relative",overflow:"hidden"}}>
         <div style={{position:"absolute",right:-20,top:-20,width:80,height:80,borderRadius:"50%",background:"rgba(94,53,177,0.1)"}}/>
         <div style={{width:40,height:40,borderRadius:12,background:"rgba(94,53,177,0.15)",border:"1.5px solid rgba(94,53,177,0.35)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>🏥</div>
@@ -7838,7 +8310,8 @@ function HomeWidgets() {
           </div>
         </div>
       </div>
-      {/* Health Tracker */}
+      )}
+      {has("healthtracker")&&(
       <div onClick={()=>sw("health")} style={{background:"linear-gradient(135deg,#1A0010,#280018)",border:"1px solid rgba(233,30,99,0.22)",borderRadius:16,padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:11,marginBottom:8}}>
         <div style={{width:40,height:40,borderRadius:12,background:"rgba(233,30,99,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>❤️</div>
         <div style={{flex:1}}>
@@ -7851,9 +8324,11 @@ function HomeWidgets() {
         </div>
         <div style={{color:"rgba(255,255,255,0.2)",fontSize:20}}>›</div>
       </div>
+      )}
 
       <S label="KNOWLEDGE PORTALS" color="#FF9800"/>
 
+      {has("knowledge")&&(<>
       {/* News */}
       <div onClick={()=>sw("news")} style={{background:"linear-gradient(135deg,#1A1200,#2D2000,#221800)",border:"1px solid rgba(255,152,0,0.22)",borderRadius:18,padding:14,cursor:"pointer",marginBottom:8}}>
         <div style={{display:"flex",gap:11,alignItems:"flex-start",marginBottom:9}}>
@@ -7913,10 +8388,11 @@ function HomeWidgets() {
         </div>
         <div style={{color:"rgba(255,255,255,0.2)",fontSize:20}}>›</div>
       </div>
+      </>)}
 
       <S label="COMMUNITY & PROFESSIONAL" color="#E91E63"/>
 
-      {/* Sponsor */}
+      {has("sponsor")&&(
       <div onClick={()=>sw("sponsor")} style={{background:"linear-gradient(135deg,#1A0020,#2D0035)",border:"1px solid rgba(233,30,99,0.18)",borderRadius:16,padding:"12px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:11,marginBottom:8}}>
         <div style={{width:40,height:40,borderRadius:12,background:"rgba(233,30,99,0.12)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🎓</div>
         <div style={{flex:1}}>
@@ -7925,8 +8401,9 @@ function HomeWidgets() {
         </div>
         <div style={{color:"rgba(255,255,255,0.2)",fontSize:20}}>›</div>
       </div>
+      )}
 
-      {/* Prof portals grid */}
+      {has("profportals")&&(
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
         {[{id:"doctor",icon:"🩺",label:"Doctors",sub:"Jobs · CME · Verify",c:"#0066CC"},{id:"hospital",icon:"🏥",label:"Hospitals",sub:"Beds · Jobs · Referrals",c:"#5E35B1"},{id:"medical",icon:"💊",label:"Medicos",sub:"Nurses · Technicians · Profile Share",c:"#00897B"},{id:"admin",icon:"🛡️",label:"Admin Panel",sub:"Verify · Blocklist",c:"#FFD700"}].map(r=>(
           <div key={r.id} onClick={()=>sw(r.id)} style={{background:`${r.c}0A`,border:`1px solid ${r.c}20`,borderRadius:14,padding:"12px 11px",cursor:"pointer"}}>
@@ -7936,6 +8413,7 @@ function HomeWidgets() {
           </div>
         ))}
       </div>
+      )}
 
       {pend>0&&(
         <div onClick={()=>sw("admin")} style={{background:"linear-gradient(135deg,#1A1400,#2A2000)",border:"1px solid rgba(255,215,0,0.2)",borderRadius:14,padding:"10px 14px",cursor:"pointer",display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
@@ -8470,6 +8948,20 @@ function _OldDoctorDashboard({setTab}) {
   );
 }
 
+const StableProfField=({label,val,field,icon,opts,editing,prof,setProf})=>(
+  <div>
+    <div style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginBottom:4}}>{icon} {label}</div>
+    {editing?(opts?(
+      <select value={prof[field]||""} onChange={e=>setProf({...prof,[field]:e.target.value})} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1.5px solid rgba(0,201,167,0.2)",borderRadius:10,color:"#fff",fontSize:12,padding:"9px 12px"}}>
+        {opts.map(o=><option key={o} value={o} style={{background:"#0A1A35"}}>{o}</option>)}
+      </select>
+    ):(
+      <input value={prof[field]||""} onChange={e=>setProf({...prof,[field]:e.target.value})} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1.5px solid rgba(0,201,167,0.2)",borderRadius:10,color:"#fff",fontSize:12,padding:"9px 12px"}}/>
+    )):(
+      <div style={{color:"rgba(255,255,255,0.65)",fontSize:12,padding:"9px 0"}}>{val||"Not set"}</div>
+    )}
+  </div>
+);
 function DoctorProfile({prof,setProf,editing,setEditing,selState,setSelState,selCity,setSelCity}) {
   const [addHosp,setAddHosp]=useState(false);
   const [newHosp,setNewHosp]=useState({name:"",from:"",to:"",desig:""});
@@ -8479,21 +8971,10 @@ function DoctorProfile({prof,setProf,editing,setEditing,selState,setSelState,sel
   const [newPub,setNewPub]=useState({title:"",journal:""});
   const [showBoost,setShowBoost]=useState(false);
   const [boostPlan,setBoostPlan]=useState("none");
+  const [showPhotoPicker,setShowPhotoPicker]=useState(false);
+  const AVATAR_OPTIONS=["🧑‍⚕️","👨‍⚕️","👩‍⚕️","🧑🏽‍⚕️","👨🏻‍⚕️","👩🏾‍⚕️","🧑🏻‍⚕️","👨🏽‍⚕️"];
 
-  const F=({label,val,field,icon,opts})=>(
-    <div>
-      <div style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginBottom:4}}>{icon} {label}</div>
-      {editing?(opts?(
-        <select value={prof[field]||""} onChange={e=>setProf({...prof,[field]:e.target.value})} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1.5px solid rgba(0,201,167,0.2)",borderRadius:10,color:"#fff",fontSize:12,padding:"9px 12px"}}>
-          {opts.map(o=><option key={o} value={o} style={{background:"#0A1A35"}}>{o}</option>)}
-        </select>
-      ):(
-        <input value={prof[field]||""} onChange={e=>setProf({...prof,[field]:e.target.value})} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1.5px solid rgba(0,201,167,0.2)",borderRadius:10,color:"#fff",fontSize:12,padding:"9px 12px"}}/>
-      )):(
-        <div style={{color:"rgba(255,255,255,0.65)",fontSize:12,padding:"9px 0"}}>{val||"Not set"}</div>
-      )}
-    </div>
-  );
+  const F=StableProfField;
 
   return (
     <div style={{display:"flex",flexDirection:"column",gap:13}}>
@@ -8517,10 +8998,36 @@ function DoctorProfile({prof,setProf,editing,setEditing,selState,setSelState,sel
       {/* Avatar — photo left · name+qual centre · specialty icon right */}
       <div style={{display:"flex",alignItems:"center",gap:13,padding:"14px 0 6px",marginBottom:4}}>
         {/* Doctor Photo */}
-        <div style={{width:68,height:68,borderRadius:18,background:"linear-gradient(135deg,#0066CC,#004EA3)",
-          border:"2.5px solid rgba(0,102,204,0.5)",display:"flex",alignItems:"center",justifyContent:"center",
-          fontSize:32,flexShrink:0,boxShadow:"0 0 24px rgba(0,102,204,0.3)"}}>
-          {prof.photo||"🧑‍⚕️"}
+        <div style={{position:"relative"}}>
+          <div onClick={()=>editing&&setShowPhotoPicker(p=>!p)} style={{width:68,height:68,borderRadius:18,background:prof.photoImage?"transparent":"linear-gradient(135deg,#0066CC,#004EA3)",
+            border:"2.5px solid rgba(0,102,204,0.5)",display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",
+            fontSize:32,flexShrink:0,boxShadow:"0 0 24px rgba(0,102,204,0.3)",cursor:editing?"pointer":"default",position:"relative"}}>
+            {prof.photoImage?<img src={prof.photoImage} alt="Profile" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:(prof.photo||"🧑‍⚕️")}
+            {editing&&<div style={{position:"absolute",bottom:-4,right:-4,width:22,height:22,borderRadius:"50%",background:"#00C9A7",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,border:"2px solid #070E1A"}}>✏️</div>}
+          </div>
+          {showPhotoPicker&&editing&&(
+            <div style={{position:"absolute",top:76,left:0,zIndex:20,background:"#0D1F3C",border:"1px solid rgba(0,201,167,0.3)",borderRadius:13,padding:10,width:200,boxShadow:"0 8px 24px rgba(0,0,0,0.4)"}}>
+              <div style={{color:"rgba(255,255,255,0.4)",fontSize:8.5,fontWeight:700,marginBottom:7}}>CHOOSE AN EMOJI AVATAR</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:7,marginBottom:10}}>
+                {AVATAR_OPTIONS.map(a=>(
+                  <div key={a} onClick={()=>{setProf({...prof,photo:a,photoImage:null});setShowPhotoPicker(false);}} style={{width:36,height:36,borderRadius:10,background:!prof.photoImage&&prof.photo===a?"rgba(0,201,167,0.25)":"rgba(255,255,255,0.06)",border:!prof.photoImage&&prof.photo===a?"1.5px solid #00C9A7":"1px solid rgba(255,255,255,0.1)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,cursor:"pointer"}}>{a}</div>
+                ))}
+              </div>
+              <div style={{borderTop:"1px solid rgba(255,255,255,0.08)",paddingTop:9}}>
+                <label style={{display:"block",textAlign:"center",background:"rgba(0,201,167,0.12)",border:"1px solid rgba(0,201,167,0.3)",borderRadius:9,padding:"8px",color:"#00C9A7",fontSize:10.5,fontWeight:700,cursor:"pointer"}}>
+                  📷 Upload Your Own Photo
+                  <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{
+                    const file=e.target.files[0];
+                    if(!file) return;
+                    const reader=new FileReader();
+                    reader.onload=ev=>{setProf({...prof,photoImage:ev.target.result});setShowPhotoPicker(false);};
+                    reader.readAsDataURL(file);
+                  }}/>
+                </label>
+                {prof.photoImage&&<div onClick={()=>{setProf({...prof,photoImage:null});setShowPhotoPicker(false);}} style={{textAlign:"center",marginTop:7,color:"rgba(255,255,255,0.4)",fontSize:9.5,cursor:"pointer"}}>Remove photo, use emoji instead</div>}
+              </div>
+            </div>
+          )}
         </div>
         {/* Name & Qualification */}
         <div style={{flex:1,minWidth:0}}>
@@ -8546,13 +9053,13 @@ function DoctorProfile({prof,setProf,editing,setEditing,selState,setSelState,sel
       <Card>
         <SecTitle>👤 Personal Information</SecTitle>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <F label="Full Name" val={prof.name} field="name" icon=""/>
+          <F label="Full Name" val={prof.name} field="name" icon="" editing={editing} prof={prof} setProf={setProf}/>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <F label="Gender" val={prof.gender} field="gender" icon="⚥" opts={["Male","Female","Other"]}/>
-            <F label="Date of Birth" val={prof.dob} field="dob" icon="📅"/>
+            <F label="Gender" val={prof.gender} field="gender" icon="⚥" opts={["Male","Female","Other"]} editing={editing} prof={prof} setProf={setProf}/>
+            <F label="Date of Birth" val={prof.dob} field="dob" icon="📅" editing={editing} prof={prof} setProf={setProf}/>
           </div>
-          <F label="Mobile" val={prof.phone} field="phone" icon="📱"/>
-          <F label="Email" val={prof.email} field="email" icon="📧"/>
+          <F label="Mobile" val={prof.phone} field="phone" icon="📱" editing={editing} prof={prof} setProf={setProf}/>
+          <F label="Email" val={prof.email} field="email" icon="📧" editing={editing} prof={prof} setProf={setProf}/>
           {/* Location */}
           {editing?(
             <div><div style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginBottom:6}}>📍 Location</div><LocSelector selState={selState} setSelState={setSelState} selCity={selCity} setSelCity={setSelCity}/></div>
@@ -8566,10 +9073,10 @@ function DoctorProfile({prof,setProf,editing,setEditing,selState,setSelState,sel
       <Card>
         <SecTitle>📜 Medical Registration</SecTitle>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <F label="Registration Number" val={prof.regNo} field="regNo" icon="🔢"/>
+          <F label="Registration Number" val={prof.regNo} field="regNo" icon="🔢" editing={editing} prof={prof} setProf={setProf}/>
           {editing?<SearchSelect label="Registration Body" opts={COUNCILS} value={prof.regBody} onChange={v=>setProf({...prof,regBody:v})} placeholder="Search council…"/>
-            :<F label="Registration Body" val={prof.regBody} field="regBody" icon="🏛️"/>}
-          <F label="Year of Registration" val={prof.regYear} field="regYear" icon="📅"/>
+            :<F label="Registration Body" val={prof.regBody} field="regBody" icon="🏛️" editing={editing} prof={prof} setProf={setProf}/>}
+          <F label="Year of Registration" val={prof.regYear} field="regYear" icon="📅" editing={editing} prof={prof} setProf={setProf}/>
         </div>
       </Card>
 
@@ -8737,7 +9244,7 @@ function SocialLinksCard({prof,setProf}) {
                 :<div style={{color:prof[s.field]?s.color:"rgba(255,255,255,0.2)",fontSize:11,fontWeight:prof[s.field]?600:400}}>{prof[s.field]||"Not added — tap Edit Links to add"}</div>
               }
             </div>
-            {prof[s.field]&&!editSocial&&<div style={{color:s.color,fontSize:14,cursor:"pointer"}}>↗</div>}
+            {prof[s.field]&&!editSocial&&<div onClick={()=>window.open(prof[s.field].startsWith("http")?prof[s.field]:`https://${prof[s.field]}`,"_blank")} style={{color:s.color,fontSize:14,cursor:"pointer"}}>↗</div>}
           </div>
         ))}
       </div>
@@ -8746,21 +9253,58 @@ function SocialLinksCard({prof,setProf}) {
 }
 
 function DoctorSchedule() {
-  const appts=[{time:"09:00 AM",patient:"Rajesh Kumar",type:"Video",status:"upcoming",condition:"HTN Follow-up"},{time:"10:30 AM",patient:"Priya Sharma",type:"Clinic",status:"upcoming",condition:"Diabetes Review"},{time:"12:00 PM",patient:"Amit Patel",type:"Video",status:"completed",condition:"Post-Op Check"},{time:"02:00 PM",patient:"Sunita Devi",type:"Clinic",status:"upcoming",condition:"Chest Pain"},{time:"04:30 PM",patient:"Mohammad Ali",type:"Video",status:"upcoming",condition:"ECG Review"}];
+  const [appts,setAppts]=useState([{id:1,time:"09:00 AM",patient:"Rajesh Kumar",type:"Video",status:"upcoming",condition:"HTN Follow-up",rescheduledCount:0},{id:2,time:"10:30 AM",patient:"Priya Sharma",type:"Clinic",status:"upcoming",condition:"Diabetes Review",rescheduledCount:0},{id:3,time:"12:00 PM",patient:"Amit Patel",type:"Video",status:"completed",condition:"Post-Op Check",rescheduledCount:0},{id:4,time:"02:00 PM",patient:"Sunita Devi",type:"Clinic",status:"upcoming",condition:"Chest Pain",rescheduledCount:0},{id:5,time:"04:30 PM",patient:"Mohammad Ali",type:"Video",status:"upcoming",condition:"ECG Review",rescheduledCount:0}]);
+  const [rescheduling,setRescheduling]=useState(null);
+  const [confirmCancel,setConfirmCancel]=useState(null);
+  const [toast,setToast]=useState("");
+  const showT=m=>{setToast(m);setTimeout(()=>setToast(""),2500);};
+
+  const doReschedule=(id,slot)=>{
+    setAppts(prev=>prev.map(a=>a.id===id?{...a,time:slot,rescheduledCount:(a.rescheduledCount||0)+1}:a));
+    setRescheduling(null);
+    showT(`✅ Rescheduled to ${slot} — no refund applies to rescheduled bookings`);
+  };
+  const doCancel=(id)=>{
+    setAppts(prev=>prev.map(a=>a.id===id?{...a,status:"cancelled"}:a));
+    setConfirmCancel(null);
+    showT("Appointment cancelled — patient has been notified");
+  };
+
   return (
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       <SecTitle>📅 Today's Appointments</SecTitle>
-      {appts.map((a,i)=>(
-        <Card key={i} style={{border:`1px solid rgba(0,201,167,${a.status==="completed"?0.04:0.15})`,opacity:a.status==="completed"?0.55:1}}>
+      {toast&&<div style={{background:"rgba(0,201,167,0.1)",border:"1px solid rgba(0,201,167,0.3)",borderRadius:11,padding:"8px 12px",color:"#00C9A7",fontSize:11,fontWeight:700,textAlign:"center"}}>{toast}</div>}
+      {appts.filter(a=>a.status!=="cancelled").map((a)=>(
+        <Card key={a.id} style={{border:`1px solid rgba(0,201,167,${a.status==="completed"?0.04:0.15})`,opacity:a.status==="completed"?0.55:1}}>
           <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
             <div style={{width:40,height:40,borderRadius:11,background:a.type==="Video"?"rgba(0,201,167,0.13)":"rgba(0,102,204,0.13)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{a.type==="Video"?"📹":"🏥"}</div>
             <div style={{flex:1}}><div style={{color:"#fff",fontWeight:600,fontSize:13}}>{a.patient}</div><div style={{color:"rgba(255,255,255,0.38)",fontSize:11,marginTop:1}}>{a.condition} · {a.type}</div></div>
             <div style={{textAlign:"right"}}><div style={{color:a.status==="completed"?"rgba(255,255,255,0.25)":"#00C9A7",fontWeight:700,fontSize:12}}>{a.time}</div><Tag color={a.status==="completed"?"#555":"#4CAF50"}>{a.status}</Tag></div>
           </div>
-          {a.status==="upcoming"&&<div style={{display:"flex",gap:7,marginTop:10}}>
-            <Btn style={{flex:1,fontSize:11,padding:"8px"}}>{a.type==="Video"?"📹 Join Call":"📋 View EMR"}</Btn>
-            <Btn secondary style={{fontSize:11,padding:"8px 11px"}}>Cancel</Btn>
-          </div>}
+          {a.status==="upcoming"&&(rescheduling===a.id?(
+            <div style={{background:"rgba(0,102,204,0.06)",border:"1px solid rgba(0,102,204,0.2)",borderRadius:10,padding:10,marginTop:10}}>
+              <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:7}}>Choose a new slot:</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
+                {RESCHEDULE_SLOTS.map(s=><div key={s} onClick={()=>doReschedule(a.id,s)} style={{padding:"6px 10px",borderRadius:8,background:"rgba(0,102,204,0.15)",border:"1px solid rgba(0,102,204,0.3)",color:"#4A9DFF",fontSize:10,fontWeight:700,cursor:"pointer"}}>{s}</div>)}
+              </div>
+              <div style={{color:"#F4A012",fontSize:9,marginBottom:8,lineHeight:1.5}}>⚠️ One-time emergency reschedule only — no refund applies. Patient will be notified.</div>
+              <button onClick={()=>setRescheduling(null)} style={{background:"none",border:"none",color:"rgba(255,255,255,0.4)",fontSize:10,cursor:"pointer"}}>Cancel</button>
+            </div>
+          ):confirmCancel===a.id?(
+            <div style={{background:"rgba(255,71,87,0.06)",border:"1px solid rgba(255,71,87,0.25)",borderRadius:10,padding:10,marginTop:10}}>
+              <div style={{color:"#fff",fontSize:11,marginBottom:8,textAlign:"center"}}>Cancel this appointment?</div>
+              <div style={{display:"flex",gap:7}}>
+                <button onClick={()=>setConfirmCancel(null)} style={{flex:1,padding:8,background:"rgba(255,255,255,0.08)",border:"none",borderRadius:8,color:"#fff",fontSize:10.5,cursor:"pointer"}}>Keep It</button>
+                <button onClick={()=>doCancel(a.id)} style={{flex:1,padding:8,background:"linear-gradient(135deg,#FF4757,#B71C1C)",border:"none",borderRadius:8,color:"#fff",fontSize:10.5,fontWeight:700,cursor:"pointer"}}>Yes, Cancel</button>
+              </div>
+            </div>
+          ):(
+            <div style={{display:"flex",gap:7,marginTop:10}}>
+              <Btn style={{flex:1,fontSize:11,padding:"8px"}}>{a.type==="Video"?"📹 Join Call":"📋 View EMR"}</Btn>
+              <Btn secondary onClick={(a.rescheduledCount||0)>=1?undefined:()=>setRescheduling(a.id)} style={{flex:1,fontSize:11,padding:"8px",opacity:(a.rescheduledCount||0)>=1?0.4:1,cursor:(a.rescheduledCount||0)>=1?"not-allowed":"pointer"}}>{(a.rescheduledCount||0)>=1?"🔒 Used":"🔄 Reschedule"}</Btn>
+              <Btn secondary onClick={()=>setConfirmCancel(a.id)} style={{fontSize:11,padding:"8px 11px"}}>Cancel</Btn>
+            </div>
+          ))}
         </Card>
       ))}
     </div>
@@ -8842,6 +9386,8 @@ function MedStaffPortal({tab,setTab}) {
   if(tab==="sharep") return <MedicosProfileShare onBack={()=>setTab("dashboard")}/>;
   if(tab==="proalerts") return <ProJobAlertsSubscription onBack={()=>setTab("dashboard")} audienceLabel="Medicos (Nurses & Allied Health)" defaultPlan="hotjobs"/>;
   if(tab==="boost") return <BoostCenter vertical="medstaff" onBack={()=>setTab("dashboard")}/>;
+  if(tab==="browse") return <BrowseDoctors onBack={()=>setTab("dashboard")} roleColor="#00897B"/>;
+  if(tab==="jobreferral") return <JobReferralWidget onBack={()=>setTab("dashboard")} roleColor="#00897B"/>;
   return <MedStaffDash setTab={setTab}/>;
 }
 
@@ -8977,6 +9523,24 @@ function MedStaffDash({setTab}) {
           <span style={{background:"rgba(0,201,167,0.2)",borderRadius:5,padding:"2px 7px",color:"#00C9A7",fontSize:9,fontWeight:700}}>NEW</span>
         </div>
       </div>
+      <div onClick={()=>setTab("browse")} style={{background:"linear-gradient(135deg,rgba(236,64,122,0.14),rgba(236,64,122,0.05))",border:"1.5px solid rgba(236,64,122,0.28)",borderRadius:14,padding:12,cursor:"pointer",marginBottom:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:9}}>
+          <span style={{fontSize:18}}>👥</span>
+          <div style={{flex:1}}>
+            <div style={{color:"#EC407A",fontWeight:800,fontSize:12}}>Browse Doctors</div>
+            <div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>Follow, rate & get update alerts from doctors</div>
+          </div>
+          <span style={{color:"rgba(255,255,255,0.3)",fontSize:16}}>›</span>
+        </div>
+      </div>
+      <div onClick={()=>setTab("jobreferral")} style={{background:"linear-gradient(135deg,rgba(0,137,123,0.3),rgba(0,137,123,0.12))",border:"1.5px solid rgba(0,137,123,0.4)",borderRadius:14,padding:"12px 14px",marginBottom:8,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+        <div style={{width:36,height:36,borderRadius:11,background:"rgba(0,137,123,0.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>📋</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{color:"#fff",fontWeight:800,fontSize:12}}>Refer a Job Opening</div>
+          <div style={{color:"rgba(255,255,255,0.45)",fontSize:9.5,marginTop:1}}>Share a nursing/allied health vacancy with STETHOSCO Admin</div>
+        </div>
+        <div style={{color:"#00C9A7",fontSize:20,flexShrink:0}}>→</div>
+      </div>
       <BoostBanner vertical="medstaff" onOpen={()=>setTab("boost")}/>
       <div onClick={()=>setTab("proalerts")} style={{background:"linear-gradient(135deg,rgba(74,157,255,0.15),rgba(74,157,255,0.05))",
         border:"1.5px solid rgba(74,157,255,0.3)",borderRadius:14,padding:12,cursor:"pointer",marginBottom:8}}>
@@ -9029,6 +9593,11 @@ function MedStaffProfile() {
   const [selCity,setSelCity]=useState("Mumbai");
   const [showBoost,setShowBoost]=useState(false);
   const [boostPlan,setBoostPlan]=useState("none");
+  const [qualification,setQualification]=useState("B.Sc Nursing");
+  const [college,setCollege]=useState("Madras Medical College Chennai");
+  const [personal,setPersonal]=useState({name:"Kavitha Nair",dob:"1990-06-12",gender:"Female",phone:"+91 98765 43210",email:"kavitha.nair@mail.com"});
+  const [pkg,setPkg]=useState({current:"7.2",expected:"9.8"});
+  const PF=(k,v)=>setPersonal(p=>({...p,[k]:v}));
   return (
     <div style={{display:"flex",flexDirection:"column",gap:13}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -9049,18 +9618,37 @@ function MedStaffProfile() {
       </Card>
       <Card>
         <SecTitle>👤 Personal Details</SecTitle>
-        {["Full Name – Kavitha Nair","DOB – 12 June 1990","Gender – Female","Phone – +91 98765 43210","Email – kavitha.nair@mail.com"].map((f,i)=>(
-          <div key={i} style={{padding:"8px 0",borderBottom:i<4?"1px solid rgba(255,255,255,0.05)":"none",color:"rgba(255,255,255,0.65)",fontSize:12}}>{f}</div>
-        ))}
+        {editing?(
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <div><div style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginBottom:4}}>Full Name</div>
+              <input value={personal.name} onChange={e=>PF("name",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1.5px solid rgba(0,201,167,0.2)",borderRadius:10,color:"#fff",fontSize:12,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div><div style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginBottom:4}}>Date of Birth</div>
+                <input type="date" value={personal.dob} onChange={e=>PF("dob",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1.5px solid rgba(0,201,167,0.2)",borderRadius:10,color:"#fff",fontSize:12,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+              <div><div style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginBottom:4}}>Gender</div>
+                <select value={personal.gender} onChange={e=>PF("gender",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1.5px solid rgba(0,201,167,0.2)",borderRadius:10,color:"#fff",fontSize:12,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}>
+                  <option>Female</option><option>Male</option><option>Other</option>
+                </select></div>
+            </div>
+            <div><div style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginBottom:4}}>Phone</div>
+              <input value={personal.phone} onChange={e=>PF("phone",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1.5px solid rgba(0,201,167,0.2)",borderRadius:10,color:"#fff",fontSize:12,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+            <div><div style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginBottom:4}}>Email</div>
+              <input value={personal.email} onChange={e=>PF("email",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1.5px solid rgba(0,201,167,0.2)",borderRadius:10,color:"#fff",fontSize:12,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+          </div>
+        ):(
+          [`Full Name – ${personal.name}`,`DOB – ${personal.dob}`,`Gender – ${personal.gender}`,`Phone – ${personal.phone}`,`Email – ${personal.email}`].map((f,i)=>(
+            <div key={i} style={{padding:"8px 0",borderBottom:i<4?"1px solid rgba(255,255,255,0.05)":"none",color:"rgba(255,255,255,0.65)",fontSize:12}}>{f}</div>
+          ))
+        )}
         {editing&&<div style={{marginTop:10}}><div style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginBottom:6}}>📍 Location</div><LocSelector selState={selState} setSelState={setSelState} selCity={selCity} setSelCity={setSelCity}/></div>}
       </Card>
       <Card>
         <SecTitle>🎓 Qualification & Registration</SecTitle>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          {editing?<SearchSelect label="Qualification" opts={QUALIFICATIONS} value="B.Sc Nursing" onChange={()=>{}} placeholder="Search qualification…"/>
-            :<div style={{color:"rgba(255,255,255,0.65)",fontSize:12}}>🎓 B.Sc Nursing</div>}
-          {editing?<SearchSelect label="College" opts={MED_COLLEGES} value="Madras Medical College Chennai" onChange={()=>{}} placeholder="Search college…"/>
-            :<div style={{color:"rgba(255,255,255,0.65)",fontSize:12}}>🏛️ Madras Medical College Chennai</div>}
+          {editing?<SearchSelect label="Qualification" opts={QUALIFICATIONS} value={qualification} onChange={setQualification} placeholder="Search qualification…"/>
+            :<div style={{color:"rgba(255,255,255,0.65)",fontSize:12}}>🎓 {qualification}</div>}
+          {editing?<SearchSelect label="College" opts={MED_COLLEGES} value={college} onChange={setCollege} placeholder="Search college…"/>
+            :<div style={{color:"rgba(255,255,255,0.65)",fontSize:12}}>🏛️ {college}</div>}
           <div style={{color:"rgba(255,255,255,0.65)",fontSize:12}}>📜 Reg No: KNC-2016-04521 · Kerala Nursing Council</div>
         </div>
       </Card>
@@ -9088,10 +9676,19 @@ function MedStaffProfile() {
       <Card>
         <SecTitle>💰 Package & Relocation</SecTitle>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-            <div style={{background:"rgba(0,201,167,0.07)",borderRadius:10,padding:11,textAlign:"center"}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:10}}>Current CTC</div><div style={{color:"#00C9A7",fontWeight:800,fontSize:16}}>₹7.2 LPA</div></div>
-            <div style={{background:"rgba(0,102,204,0.09)",borderRadius:10,padding:11,textAlign:"center"}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:10}}>Expected CTC</div><div style={{color:"#4A9DFF",fontWeight:800,fontSize:16}}>₹9.8 LPA</div></div>
-          </div>
+          {editing?(
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div><div style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginBottom:4}}>Current CTC (LPA)</div>
+                <input type="number" value={pkg.current} onChange={e=>setPkg(p=>({...p,current:e.target.value}))} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1.5px solid rgba(0,201,167,0.2)",borderRadius:10,color:"#fff",fontSize:12,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+              <div><div style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginBottom:4}}>Expected CTC (LPA)</div>
+                <input type="number" value={pkg.expected} onChange={e=>setPkg(p=>({...p,expected:e.target.value}))} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1.5px solid rgba(0,201,167,0.2)",borderRadius:10,color:"#fff",fontSize:12,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+            </div>
+          ):(
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+              <div style={{background:"rgba(0,201,167,0.07)",borderRadius:10,padding:11,textAlign:"center"}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:10}}>Current CTC</div><div style={{color:"#00C9A7",fontWeight:800,fontSize:16}}>₹{pkg.current} LPA</div></div>
+              <div style={{background:"rgba(0,102,204,0.09)",borderRadius:10,padding:11,textAlign:"center"}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:10}}>Expected CTC</div><div style={{color:"#4A9DFF",fontWeight:800,fontSize:16}}>₹{pkg.expected} LPA</div></div>
+            </div>
+          )}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(255,255,255,0.04)",borderRadius:10,padding:"10px 13px"}}><div style={{color:"rgba(255,255,255,0.6)",fontSize:12}}>✈️ Open to Relocation</div><Tag color="#4CAF50">Yes – Above ₹9L</Tag></div>
         </div>
       </Card>
@@ -9128,6 +9725,9 @@ function HospitalPortal({tab,setTab}){
     : <HospitalJobPostForm onBack={()=>setTab("dashboard")} onSuccess={()=>setPostJobSuccess(true)}/>;
   if(tab==="nearby") return <NearbyHospitalSearch roleColor="#5E35B1" onBack={()=>setTab("dashboard")}/>;
   if(tab==="boost") return <BoostCenter vertical="hospital" onBack={()=>setTab("dashboard")}/>;
+  if(tab==="postjob") return <PostJobWidget onBack={()=>setTab("dashboard")} orgLabel="Hospital" roleColor="#5E35B1"/>;
+  if(tab==="managedoctors") return <HospitalManageDoctors onBack={()=>setTab("dashboard")}/>;
+  if(tab==="profilemanager") return <HospitalProfileManager onBack={()=>setTab("dashboard")}/>;
 
   if(tab==="register") return(
     <div>
@@ -9207,7 +9807,7 @@ function HospitalPortal({tab,setTab}){
       </div>
       <BoostBanner vertical="hospital" onOpen={()=>setTab("boost")}/>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
-        {[{icon:"📝",l:"Register Hospital",sub:"Add new facility",action:()=>setTab("register"),bg:"rgba(94,53,177,0.12)",bc:"rgba(94,53,177,0.25)"},{icon:"📍",l:"Find Nearby",sub:"Search hospitals",action:()=>setTab("nearby"),bg:"rgba(0,201,167,0.08)",bc:"rgba(0,201,167,0.2)"},{icon:"🚀",l:"Boost Listing",sub:"Get featured first",action:()=>setTab("boost"),bg:"rgba(244,160,18,0.08)",bc:"rgba(244,160,18,0.2)"}].map(q=><Card key={q.l} onClick={q.action} style={{cursor:"pointer",padding:14,background:q.bg,borderColor:q.bc}}>
+        {[{icon:"📝",l:"Register Hospital",sub:"Add new facility",action:()=>setTab("register"),bg:"rgba(94,53,177,0.12)",bc:"rgba(94,53,177,0.25)"},{icon:"📍",l:"Find Nearby",sub:"Search hospitals",action:()=>setTab("nearby"),bg:"rgba(0,201,167,0.08)",bc:"rgba(0,201,167,0.2)"},{icon:"🚀",l:"Boost Listing",sub:"Get featured first",action:()=>setTab("boost"),bg:"rgba(244,160,18,0.08)",bc:"rgba(244,160,18,0.2)"},{icon:"💼",l:"Post a Job",sub:"Hire directly",action:()=>setTab("postjob"),bg:"rgba(0,102,204,0.08)",bc:"rgba(0,102,204,0.2)"},{icon:"👨‍⚕️",l:"Manage Doctors",sub:"Onboard with fees",action:()=>setTab("managedoctors"),bg:"rgba(94,53,177,0.1)",bc:"rgba(94,53,177,0.22)"},{icon:"📋",l:"Profile Manager",sub:"Facilities, packages & more",action:()=>setTab("profilemanager"),bg:"rgba(0,201,167,0.1)",bc:"rgba(0,201,167,0.22)"}].map(q=><Card key={q.l} onClick={q.action} style={{cursor:"pointer",padding:14,background:q.bg,borderColor:q.bc}}>
           <div style={{fontSize:24,marginBottom:5}}>{q.icon}</div>
           <div style={{color:"#fff",fontWeight:700,fontSize:12}}>{q.l}</div>
           <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,marginTop:2}}>{q.sub}</div>
@@ -9230,22 +9830,28 @@ function HospitalPortal({tab,setTab}){
 
 
 
+const PATIENT_FAMILY_DB=[
+  {id:"fam1",name:"Rohan Sharma",relation:"Spouse",age:35,bloodGroup:"A+"},
+  {id:"fam2",name:"Aarav Sharma",relation:"Son",age:8,bloodGroup:"O+"},
+];
 function PatientPortal({tab,setTab}) {
   const [docRatings,setDocRatings]=useState({1:4,2:5,3:3});
   const [hospRatings,setHospRatings]=useState({1:5,2:4});
   const [viewDoctor,setViewDoctor]=useState(null);
   const [viewHospital,setViewHospital]=useState(null);
+  const [activeDependent,setActiveDependent]=useState(null); // null = booking/viewing for self
   if(viewDoctor) return <DoctorPublicProfile doc={viewDoctor} onBack={()=>setViewDoctor(null)} setTab={setTab}/>;
   if(viewHospital) return <HospitalPublicProfile hosp={viewHospital} onBack={()=>setViewHospital(null)}/>;
   if(tab==="health") return <HealthTracker setTab={setTab}/>;
   if(tab==="insurance") return <PatientInsurance/>;
   if(tab==="search") return <PatientSearch setViewDoctor={setViewDoctor} setViewHospital={setViewHospital}/>;
-  if(tab==="emr") return <PatientEMR/>;
-  if(tab==="book") return <PatientBook setViewDoctor={setViewDoctor}/>;
-  if(tab==="profile") return <PatientProfile/>;
+  if(tab==="emr") return <PatientEMR activeDependent={activeDependent} setActiveDependent={setActiveDependent}/>;
+  if(tab==="book") return <PatientBook setViewDoctor={setViewDoctor} activeDependent={activeDependent} setActiveDependent={setActiveDependent} setTab={setTab}/>;
+  if(tab==="profile") return <PatientProfile setTab={setTab} setActiveDependent={setActiveDependent}/>;
   if(tab==="ratings") return <PatientRatings docRatings={docRatings} setDocRatings={setDocRatings} hospRatings={hospRatings} setHospRatings={setHospRatings}/>;
   if(tab==="premium") return <PatientPremiumPlans onBack={()=>setTab("dashboard")}/>;
   if(tab==="symptoms") return <AISymptomChecker onBack={()=>setTab("dashboard")} setTab={setTab} setViewDoctor={setViewDoctor}/>;
+  if(tab==="teleconsult") return <TeleconsultFlow onBack={()=>setTab("dashboard")} dependent={activeDependent}/>;
   return <PatientDash setTab={setTab}/>;
 }
 
@@ -9498,7 +10104,7 @@ function PatientShareModal({prof, onClose}){
   );
 }
 
-function PatientProfile(){
+function PatientProfile({setTab,setActiveDependent}){
   const [editing,setEditing]=useState(false);
   const [photo,setPhoto]=useState(null);
   const [showShare,setShowShare]=useState(false);
@@ -9508,20 +10114,25 @@ function PatientProfile(){
     allergies:"None known",conditions:"None reported"
   });
   const P=(k,v)=>setProf(p=>({...p,[k]:v}));
-  const [familyMembers,setFamilyMembers]=useState([
-    {id:"fam1",name:"Rohan Sharma",relation:"Spouse",age:35,bloodGroup:"A+"},
-    {id:"fam2",name:"Aarav Sharma",relation:"Son",age:8,bloodGroup:"O+"},
-  ]);
+  const [familyMembers,setFamilyMembers]=useState(PATIENT_FAMILY_DB);
   const [showAddFamily,setShowAddFamily]=useState(false);
   const [newFamily,setNewFamily]=useState({name:"",relation:"Spouse",age:"",bloodGroup:""});
   const NF=(k,v)=>setNewFamily(p=>({...p,[k]:v}));
   const addFamilyMember=()=>{
     if(!newFamily.name.trim()) return;
-    setFamilyMembers(m=>[...m,{id:"fam"+Date.now(),name:newFamily.name,relation:newFamily.relation,age:+newFamily.age||0,bloodGroup:newFamily.bloodGroup||"Unknown"}]);
+    const rec={id:"fam"+Date.now(),name:newFamily.name,relation:newFamily.relation,age:+newFamily.age||0,bloodGroup:newFamily.bloodGroup||"Unknown"};
+    PATIENT_FAMILY_DB.push(rec);
+    setFamilyMembers(m=>[...m,rec]);
     setNewFamily({name:"",relation:"Spouse",age:"",bloodGroup:""});
     setShowAddFamily(false);
   };
-  const removeFamilyMember=(id)=>setFamilyMembers(m=>m.filter(x=>x.id!==id));
+  const removeFamilyMember=(id)=>{
+    const idx=PATIENT_FAMILY_DB.findIndex(x=>x.id===id);
+    if(idx>=0) PATIENT_FAMILY_DB.splice(idx,1);
+    setFamilyMembers(m=>m.filter(x=>x.id!==id));
+  };
+  const bookFor=(m)=>{setActiveDependent(m);setTab("book");};
+  const viewEmrFor=(m)=>{setActiveDependent(m);setTab("emr");};
   const [healthDeclared,setHealthDeclared]=useState(true); // already-registered patient; re-confirmed whenever they edit
   const handleEditToggle=()=>{
     if(editing && !healthDeclared) return; // block save until re-confirmed
@@ -9566,13 +10177,19 @@ function PatientProfile(){
         <SecTitle>👨‍👩‍👧‍👦 Family Members</SecTitle>
         <div style={{color:"rgba(255,255,255,0.35)",fontSize:9.5,marginBottom:10,lineHeight:1.6}}>Manage EMR, appointments & premium benefits for your whole family from one account.</div>
         {familyMembers.map(m=>(
-          <div key={m.id} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,padding:"9px 11px",marginBottom:8}}>
-            <div style={{width:36,height:36,borderRadius:11,background:"rgba(198,40,40,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{m.relation==="Son"||m.relation==="Daughter"?"🧒":m.relation==="Spouse"?"💑":m.relation==="Father"||m.relation==="Mother"?"👴":"🫀"}</div>
-            <div style={{flex:1,minWidth:0}}>
-              <div style={{color:"#fff",fontWeight:700,fontSize:11.5}}>{m.name}</div>
-              <div style={{color:"rgba(255,255,255,0.35)",fontSize:9.5,marginTop:1}}>{m.relation} · {m.age} yrs · {m.bloodGroup}</div>
+          <div key={m.id} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,padding:"9px 11px",marginBottom:8}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+              <div style={{width:36,height:36,borderRadius:11,background:"rgba(198,40,40,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0}}>{m.relation==="Son"||m.relation==="Daughter"?"🧒":m.relation==="Spouse"?"💑":m.relation==="Father"||m.relation==="Mother"?"👴":"🫀"}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{color:"#fff",fontWeight:700,fontSize:11.5}}>{m.name}</div>
+                <div style={{color:"rgba(255,255,255,0.35)",fontSize:9.5,marginTop:1}}>{m.relation} · {m.age} yrs · {m.bloodGroup}</div>
+              </div>
+              <button onClick={()=>removeFamilyMember(m.id)} style={{background:"rgba(255,71,87,0.1)",border:"1px solid rgba(255,71,87,0.25)",borderRadius:8,padding:"5px 9px",color:"#FF4757",fontSize:9.5,fontWeight:700,cursor:"pointer",flexShrink:0}}>Remove</button>
             </div>
-            <button onClick={()=>removeFamilyMember(m.id)} style={{background:"rgba(255,71,87,0.1)",border:"1px solid rgba(255,71,87,0.25)",borderRadius:8,padding:"5px 9px",color:"#FF4757",fontSize:9.5,fontWeight:700,cursor:"pointer",flexShrink:0}}>Remove</button>
+            <div style={{display:"flex",gap:7}}>
+              <button onClick={()=>bookFor(m)} style={{flex:1,background:"rgba(0,102,204,0.12)",border:"1px solid rgba(0,102,204,0.3)",borderRadius:8,padding:"7px",color:"#4A9DFF",fontSize:10,fontWeight:700,cursor:"pointer"}}>📅 Book For {m.name.split(" ")[0]}</button>
+              <button onClick={()=>viewEmrFor(m)} style={{flex:1,background:"rgba(171,71,188,0.12)",border:"1px solid rgba(171,71,188,0.3)",borderRadius:8,padding:"7px",color:"#CE93D8",fontSize:10,fontWeight:700,cursor:"pointer"}}>📋 View EMR</button>
+            </div>
           </div>
         ))}
         {showAddFamily ? (
@@ -9914,6 +10531,15 @@ function PatientDash({setTab}) {
         <div style={{flex:1}}>
           <div style={{color:"#fff",fontWeight:700,fontSize:13}}>AI Symptom Checker</div>
           <div style={{color:"rgba(255,255,255,0.4)",fontSize:11,marginTop:2}}>Free instant triage — know what to do next</div>
+        </div>
+        <div style={{color:"rgba(255,255,255,0.25)",fontSize:20}}>›</div>
+      </div>
+      {/* Video Teleconsultation */}
+      <div onClick={()=>setTab("teleconsult")} style={{background:"linear-gradient(135deg,rgba(0,89,76,0.35),rgba(0,201,167,0.15))",border:"1.5px solid rgba(0,201,167,0.4)",borderRadius:16,padding:"13px 15px",cursor:"pointer",display:"flex",alignItems:"center",gap:12}}>
+        <div style={{width:42,height:42,borderRadius:13,background:"rgba(0,201,167,0.22)",border:"1.5px solid rgba(0,201,167,0.4)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>🎥</div>
+        <div style={{flex:1}}>
+          <div style={{color:"#fff",fontWeight:700,fontSize:13}}>Video Consultation</div>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:11,marginTop:2}}>4 doctors available now · from ₹399</div>
         </div>
         <div style={{color:"rgba(255,255,255,0.25)",fontSize:20}}>›</div>
       </div>
@@ -10678,7 +11304,7 @@ function HealthTracker({setTab}) {
   );
 }
 
-function PatientEMR({setTab}) {
+function PatientEMR({setTab,activeDependent,setActiveDependent}) {
   const [ordered,setOrdered]=useState(false);
   const orderFromPharmacy=(rx)=>{
     PENDING_PHARMACY_ORDER.push(...rx.medicines.map(m=>m.med));
@@ -10689,9 +11315,28 @@ function PatientEMR({setTab}) {
       if(r&&__switchRole) __switchRole(r);
     },1200);
   };
+  if(activeDependent) return (
+    <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      <SecTitle>📋 Electronic Medical Records</SecTitle>
+      {setActiveDependent&&<DependentSelector activeDependent={activeDependent} setActiveDependent={setActiveDependent} label="Viewing"/>}
+      <div style={{background:"linear-gradient(135deg,rgba(171,71,188,.18),rgba(123,31,162,.1))",border:"1px solid rgba(171,71,188,.3)",borderRadius:16,padding:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+          <div><div style={{color:"#fff",fontWeight:800,fontSize:16}}>{activeDependent.name}</div><div style={{color:"rgba(255,255,255,0.45)",fontSize:12}}>{activeDependent.relation} · Age {activeDependent.age}</div></div>
+          <div style={{textAlign:"center",background:"rgba(255,0,0,.2)",borderRadius:10,padding:"7px 12px"}}><div style={{fontSize:20}}>🩸</div><div style={{color:"#FF4757",fontWeight:800,fontSize:16}}>{activeDependent.bloodGroup}</div></div>
+        </div>
+      </div>
+      <Card style={{textAlign:"center",padding:"28px 16px"}}>
+        <div style={{fontSize:34,marginBottom:10}}>🗂️</div>
+        <div style={{color:"#fff",fontWeight:700,fontSize:12.5,marginBottom:5}}>No records yet for {activeDependent.name}</div>
+        <div style={{color:"rgba(255,255,255,0.4)",fontSize:10.5,lineHeight:1.6,marginBottom:14}}>Once you book a consultation for {activeDependent.name.split(" ")[0]}, their vitals, prescriptions, and reports will appear here — kept separate from your own records.</div>
+        <MBtn onClick={()=>setTab("book")} style={{background:"linear-gradient(135deg,#AB47BC,#6A1B9A)"}}>📅 Book a Consultation</MBtn>
+      </Card>
+    </div>
+  );
   return (
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       <SecTitle>📋 My Electronic Medical Records</SecTitle>
+      {setActiveDependent&&<DependentSelector activeDependent={activeDependent} setActiveDependent={setActiveDependent} label="Viewing"/>}
       <div style={{background:"linear-gradient(135deg,rgba(198,40,40,.18),rgba(183,28,28,.1))",border:"1px solid rgba(198,40,40,.3)",borderRadius:16,padding:16}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
           <div><div style={{color:"#fff",fontWeight:800,fontSize:16}}>Ananya Sharma</div><div style={{color:"rgba(255,255,255,0.45)",fontSize:12}}>DOB: 12 Mar 1988 · Female · Pune</div></div>
@@ -10726,16 +11371,150 @@ function PatientEMR({setTab}) {
   );
 }
 
-function PatientBook({setViewDoctor}) {
+function DependentSelector({activeDependent,setActiveDependent,label="Booking for"}){
+  const [open,setOpen]=useState(false);
+  const current=activeDependent?activeDependent.name:"Myself";
+  return (
+    <div style={{position:"relative",marginBottom:4}}>
+      <div onClick={()=>setOpen(o=>!o)} style={{background:"rgba(255,255,255,0.04)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:11,padding:"9px 12px",display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+        <span style={{fontSize:14}}>{activeDependent?(activeDependent.relation==="Son"||activeDependent.relation==="Daughter"?"🧒":"👤"):"🙋"}</span>
+        <span style={{color:"rgba(255,255,255,0.4)",fontSize:10}}>{label}:</span>
+        <span style={{color:"#fff",fontWeight:700,fontSize:11.5,flex:1}}>{current}</span>
+        <span style={{color:"rgba(255,255,255,0.3)",fontSize:11}}>⌄</span>
+      </div>
+      {open&&(
+        <div style={{position:"absolute",top:"105%",left:0,right:0,background:"#0F1E33",border:"1px solid rgba(255,255,255,0.14)",borderRadius:11,padding:5,zIndex:20,boxShadow:"0 10px 30px rgba(0,0,0,0.4)"}}>
+          <div onClick={()=>{setActiveDependent(null);setOpen(false);}} style={{padding:"8px 10px",borderRadius:8,cursor:"pointer",color:!activeDependent?"#00C9A7":"#fff",fontSize:11,fontWeight:!activeDependent?800:500}}>🙋 Myself</div>
+          {PATIENT_FAMILY_DB.map(m=>(
+            <div key={m.id} onClick={()=>{setActiveDependent(m);setOpen(false);}} style={{padding:"8px 10px",borderRadius:8,cursor:"pointer",color:activeDependent?.id===m.id?"#00C9A7":"#fff",fontSize:11,fontWeight:activeDependent?.id===m.id?800:500}}>{m.relation==="Son"||m.relation==="Daughter"?"🧒":"👤"} {m.name} <span style={{color:"rgba(255,255,255,0.3)",fontWeight:400}}>· {m.relation}</span></div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+const PATIENT_APPOINTMENTS_DB=[
+  {id:"apt1",type:"doctor",title:"Dr. Anand Rao",sub:"Cardiologist · Apollo",date:"2 Sep 2026",time:"11:30 AM",forName:"Myself",status:"upcoming"},
+  {id:"apt2",type:"hospital",title:"Fortis Memorial",sub:"OPD · Neurology",date:"5 Sep 2026",time:"Morning slot",forName:"Rohan Sharma",status:"upcoming"},
+];
+function PatientBook({setViewDoctor,activeDependent,setActiveDependent}) {
   const [bookTab,setBookTab]=useState("doctor");
   const [bookedMsg,setBookedMsg]=useState("");
+  const patientPct=PLATFORM_COMMISSION.doctorBooking.patientPct;
   const docs=[{name:"Dr. Anand Rao",spec:"Cardiologist",exp:"20 Yrs",fee:800,rating:4.9,slots:["10:00 AM","11:30 AM","3:00 PM"],hosp:"Apollo"},{name:"Dr. Priya Menon",spec:"Neurologist",exp:"15 Yrs",fee:1000,rating:4.8,slots:["9:00 AM","2:00 PM"],hosp:"Fortis"},{name:"Dr. Rajan Nair",spec:"General Physician",exp:"12 Yrs",fee:500,rating:4.7,slots:["10:30 AM","4:00 PM"],hosp:"Manipal"}];
-  const hosps=[{name:"Apollo Hospitals",city:"Mumbai",beds:710,rating:4.9,depts:["Cardiology","Neurology","Oncology"],opd:"Mon–Sat 9AM–5PM"},{name:"Fortis Memorial",city:"Gurgaon",beds:310,rating:4.8,depts:["Ortho","Neuro","Cardiac"],opd:"Mon–Fri 8AM–6PM"}];
-  const bookSlot=(doc,slot)=>{setBookedMsg(`✅ Booked ${slot} with ${doc.name}`);setTimeout(()=>setBookedMsg(""),3000);};
-  const bookOPD=(h)=>{setBookedMsg(`✅ OPD appointment requested at ${h.name}`);setTimeout(()=>setBookedMsg(""),3000);};
+  const hosps=NEARBY_HOSPITALS_DB;
+  const forName=activeDependent?activeDependent.name:"yourself";
+  const [opdHospital,setOpdHospital]=useState(null);
+  const [opdDoc,setOpdDoc]=useState(null);
+  const [opdSlot,setOpdSlot]=useState(null);
+  const [opdPaying,setOpdPaying]=useState(false);
+  const [opdConfirmed,setOpdConfirmed]=useState(null);
+  const bookSlot=(doc,slot)=>{
+    PATIENT_APPOINTMENTS_DB.unshift({id:"apt"+Date.now(),type:"doctor",title:doc.name,sub:`${doc.spec} · ${doc.hosp}`,date:"Upcoming",time:slot,forName:activeDependent?activeDependent.name:"Myself",status:"upcoming"});
+    const patientFee=Math.round(doc.fee*patientPct/100);
+    const total=doc.fee+patientFee;
+    setBookedMsg(`✅ Booked ${slot} with ${doc.name} for ${forName} · ₹${doc.fee} + ₹${patientFee} platform fee = ₹${total}`);setTimeout(()=>setBookedMsg(""),3500);
+  };
+  const opdConfirm=()=>{
+    PATIENT_APPOINTMENTS_DB.unshift({id:"apt"+Date.now(),type:"hospital",title:opdDoc.name,sub:`${opdDoc.specialization} · ${opdHospital.name}`,date:"Upcoming",time:opdSlot,forName:activeDependent?activeDependent.name:"Myself",status:"upcoming"});
+    setOpdConfirmed({code:`APT-${Math.floor(10000+Math.random()*89999)}`,doc:opdDoc,slot:opdSlot,hosp:opdHospital});
+    setOpdPaying(false);
+  };
+
+  if(opdPaying&&opdDoc){
+    const total=Math.round(opdDoc.fee*(1+patientPct/100));
+    return <PaymentGateway amount={total} label={`OPD: ${opdDoc.name} · ${opdHospital.name}`} portal="Hospital OPD" icon="🏥" accentColor="#0066CC" onBack={()=>setOpdPaying(false)} onPaid={opdConfirm}/>;
+  }
+
+  if(opdConfirmed) return (
+    <div style={{textAlign:"center",padding:"40px 16px"}}>
+      <div style={{fontSize:52,marginBottom:14}}>✅</div>
+      <div style={{color:"#fff",fontWeight:900,fontSize:17,fontFamily:"Playfair Display,serif",marginBottom:6}}>Appointment Confirmed</div>
+      <div style={{color:"rgba(255,255,255,0.45)",fontSize:12,marginBottom:18,lineHeight:1.6}}>{opdConfirmed.doc.name} · {opdConfirmed.hosp.name}<br/>{opdConfirmed.slot}</div>
+      <div style={{background:"rgba(255,255,255,0.04)",border:"1.5px dashed rgba(255,255,255,0.2)",borderRadius:14,padding:16,marginBottom:16,textAlign:"left"}}>
+        <div style={{display:"flex",justifyContent:"space-between"}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9}}>CONFIRMATION CODE</div><div style={{color:"#0066CC",fontWeight:900,fontSize:14,letterSpacing:1}}>{opdConfirmed.code}</div></div>
+      </div>
+      <div style={{background:"rgba(0,201,167,0.06)",border:"1px solid rgba(0,201,167,0.2)",borderRadius:12,padding:"12px 14px",marginBottom:20,fontSize:10,color:"rgba(255,255,255,0.5)",lineHeight:1.7,textAlign:"left"}}>
+        <div style={{color:"#00C9A7",fontWeight:700,marginBottom:6}}>📤 Receipt shared with:</div>
+        ✓ You — via WhatsApp & Email<br/>
+        ✓ {opdConfirmed.doc.name} — via WhatsApp & Email<br/>
+        ✓ STETHOSCO Admin — for records
+      </div>
+      <MBtn onClick={()=>{setOpdConfirmed(null);setOpdHospital(null);setOpdDoc(null);setOpdSlot(null);}} style={{width:"100%"}}>Done</MBtn>
+    </div>
+  );
+
+  if(opdDoc) return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={()=>{setOpdDoc(null);setOpdSlot(null);}}/>
+        <div style={{color:"#fff",fontWeight:800,fontSize:14}}>Book Appointment</div>
+      </div>
+      <Card style={{marginBottom:12}}>
+        <div style={{color:"#fff",fontWeight:800,fontSize:13}}>{opdDoc.name}</div>
+        <div style={{color:"rgba(255,255,255,0.45)",fontSize:11,marginTop:2}}>{opdDoc.specialization} · {opdDoc.dept} · {opdDoc.exp}</div>
+      </Card>
+      <div style={{background:"rgba(244,160,18,0.06)",border:"1px solid rgba(244,160,18,0.2)",borderRadius:11,padding:"9px 12px",marginBottom:12,fontSize:9.5,color:"rgba(255,255,255,0.45)",lineHeight:1.6}}>💰 A {patientPct}% platform fee is added to the consultation fee — shown transparently before payment.</div>
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>AVAILABLE SLOTS</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:16}}>
+        {opdDoc.slots.map(s=>(
+          <div key={s} onClick={()=>setOpdSlot(s)} style={{padding:"9px 14px",borderRadius:9,cursor:"pointer",background:opdSlot===s?"rgba(0,102,204,0.25)":"rgba(255,255,255,0.05)",border:`1px solid ${opdSlot===s?"#0066CC":"rgba(255,255,255,0.12)"}`,color:opdSlot===s?"#fff":"rgba(255,255,255,0.5)",fontSize:11,fontWeight:700}}>{s}</div>
+        ))}
+      </div>
+      <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,padding:13,marginBottom:16}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><div style={{color:"rgba(255,255,255,0.5)",fontSize:11}}>Consultation Fee</div><div style={{color:"#fff",fontSize:12,fontWeight:700}}>{inr(opdDoc.fee)}</div></div>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:6}}><div style={{color:"rgba(255,255,255,0.5)",fontSize:11}}>Platform Fee ({patientPct}%)</div><div style={{color:"#fff",fontSize:12,fontWeight:700}}>{inr(Math.round(opdDoc.fee*patientPct/100))}</div></div>
+        <div style={{display:"flex",justifyContent:"space-between",paddingTop:8,borderTop:"1px solid rgba(255,255,255,0.08)"}}><div style={{color:"#0066CC",fontSize:12,fontWeight:800}}>Total Payable</div><div style={{color:"#0066CC",fontSize:15,fontWeight:900}}>{inr(Math.round(opdDoc.fee*(1+patientPct/100)))}</div></div>
+      </div>
+      <MBtn onClick={()=>setOpdPaying(true)} disabled={!opdSlot} style={{width:"100%",background:"linear-gradient(135deg,#0066CC,#0A1628)"}}>Continue to Payment</MBtn>
+    </div>
+  );
+
+  if(opdHospital) return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={()=>setOpdHospital(null)}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>{opdHospital.name}</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>{opdHospital.city} · Onboarded doctors</div></div>
+      </div>
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>DEPARTMENTS & SPECIALITIES</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:16}}>
+        {[...new Set(HOSPITAL_ONBOARDED_DOCTORS.filter(d=>d.hospitalId===opdHospital.id).map(d=>d.dept))].map(dept=>(
+          <Tag key={dept} color="#5E35B1">{dept}</Tag>
+        ))}
+        {HOSPITAL_ONBOARDED_DOCTORS.filter(d=>d.hospitalId===opdHospital.id).length===0&&<div style={{color:"rgba(255,255,255,0.3)",fontSize:11}}>No departments onboarded yet</div>}
+      </div>
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>DOCTORS AVAILABLE FOR OPD</div>
+      {HOSPITAL_ONBOARDED_DOCTORS.filter(d=>d.hospitalId===opdHospital.id).length===0&&<Card style={{textAlign:"center",padding:"24px 16px"}}><div style={{fontSize:28,marginBottom:8}}>📭</div><div style={{color:"rgba(255,255,255,0.4)",fontSize:11}}>This hospital has not onboarded any doctors yet</div></Card>}
+      <div style={{display:"flex",flexDirection:"column",gap:9}}>
+        {HOSPITAL_ONBOARDED_DOCTORS.filter(d=>d.hospitalId===opdHospital.id).map(d=>(
+          <div key={d.id} style={{display:"flex",alignItems:"center",gap:10,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:13,padding:12}}>
+            <div style={{width:38,height:38,borderRadius:11,background:"rgba(0,102,204,0.18)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>👨‍⚕️</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{color:"#fff",fontWeight:700,fontSize:12}}>{d.name}</div>
+              <div style={{color:"rgba(255,255,255,0.4)",fontSize:10}}>{d.specialization} · {d.dept}</div>
+              <div style={{color:"#0066CC",fontSize:10,fontWeight:700,marginTop:1}}>{inr(d.fee)} consultation</div>
+            </div>
+            <button onClick={()=>{setOpdDoc(d);setOpdSlot(null);}} style={{background:"linear-gradient(135deg,#0066CC,#0A1628)",border:"none",borderRadius:8,padding:"9px 14px",color:"#fff",fontSize:10.5,fontWeight:700,cursor:"pointer",flexShrink:0,fontFamily:"Outfit,sans-serif"}}>Book</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
+      {setActiveDependent&&<DependentSelector activeDependent={activeDependent} setActiveDependent={setActiveDependent}/>}
+      {PATIENT_APPOINTMENTS_DB.filter(a=>a.status==="upcoming").length>0&&(
+        <div onClick={()=>setBookTab("manage")} style={{background:"rgba(0,201,167,0.06)",border:"1px solid rgba(0,201,167,0.2)",borderRadius:12,padding:"10px 13px",cursor:"pointer",display:"flex",alignItems:"center",gap:9}}>
+          <span style={{fontSize:15}}>📅</span>
+          <span style={{flex:1,color:"#00C9A7",fontSize:11,fontWeight:700}}>{PATIENT_APPOINTMENTS_DB.filter(a=>a.status==="upcoming").length} upcoming appointment{PATIENT_APPOINTMENTS_DB.filter(a=>a.status==="upcoming").length!==1?"s":""} — manage, reschedule or cancel</span>
+          <span style={{color:"#00C9A7",fontSize:14}}>›</span>
+        </div>
+      )}
       {bookedMsg&&<div style={{background:"rgba(0,201,167,0.12)",border:"1px solid rgba(0,201,167,0.3)",borderRadius:11,padding:"9px 13px",color:"#00C9A7",fontSize:11.5,fontWeight:700,textAlign:"center"}}>{bookedMsg}</div>}
+      {bookTab==="manage"?(
+        <MyAppointments onBack={()=>setBookTab("doctor")}/>
+      ):(<>
       <div style={{display:"flex",background:"rgba(255,255,255,0.05)",borderRadius:12,padding:4,gap:4}}>
         {[{id:"doctor",label:"🩺 Book Doctor"},{id:"hospital",label:"🏥 Hospital OPD"}].map(t=>(
           <div key={t.id} onClick={()=>setBookTab(t.id)} style={{flex:1,textAlign:"center",padding:"9px",borderRadius:9,background:bookTab===t.id?"linear-gradient(135deg,#0066CC,#00897B)":"transparent",color:bookTab===t.id?"#fff":"rgba(255,255,255,0.45)",fontSize:12,fontWeight:bookTab===t.id?700:400,cursor:"pointer",transition:"all .2s"}}>{t.label}</div>
@@ -10743,12 +11522,13 @@ function PatientBook({setViewDoctor}) {
       </div>
       {bookTab==="doctor"&&(
         <>
+          <div style={{background:"rgba(244,160,18,0.06)",border:"1px solid rgba(244,160,18,0.2)",borderRadius:11,padding:"9px 12px",fontSize:9.5,color:"rgba(255,255,255,0.45)",lineHeight:1.6}}>💰 A {patientPct}% platform fee is added to your payable amount, and a separate {PLATFORM_COMMISSION.doctorBooking.pct}% is deducted from the doctor payout — both sides contribute to the platform cost on every booking.</div>
           <Card style={{padding:"10px 12px",display:"flex",gap:10,alignItems:"center"}}><span>🔍</span><span style={{color:"rgba(255,255,255,0.28)",fontSize:12}}>Search by name, specialty…</span></Card>
           {docs.map((d,i)=>(
             <Card key={i} style={{cursor:"pointer"}} onClick={()=>setViewDoctor&&setViewDoctor(d)}>
               <div style={{display:"flex",gap:10,marginBottom:10}}>
                 <div style={{width:46,height:46,borderRadius:13,background:"linear-gradient(135deg,#C62828,#B71C1C)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>👨‍⚕️</div>
-                <div style={{flex:1}}><div style={{color:"#fff",fontWeight:700,fontSize:13}}>{d.name}</div><div style={{color:"rgba(255,255,255,0.42)",fontSize:11}}>{d.spec} · {d.exp} · {d.hosp}</div><div style={{display:"flex",gap:10,marginTop:3}}><span style={{color:"#F4A012",fontSize:11}}>⭐ {d.rating}</span><span style={{color:"#00C9A7",fontSize:11,fontWeight:700}}>₹{d.fee}</span></div></div>
+                <div style={{flex:1}}><div style={{color:"#fff",fontWeight:700,fontSize:13}}>{d.name}</div><div style={{color:"rgba(255,255,255,0.42)",fontSize:11}}>{d.spec} · {d.exp} · {d.hosp}</div><div style={{display:"flex",gap:10,marginTop:3,alignItems:"center"}}><span style={{color:"#F4A012",fontSize:11}}>⭐ {d.rating}</span><span style={{color:"#00C9A7",fontSize:11,fontWeight:700}}>₹{Math.round(d.fee*(1+patientPct/100))}</span><span style={{color:"rgba(255,255,255,0.3)",fontSize:9}}>(₹{d.fee} + ₹{Math.round(d.fee*patientPct/100)} platform fee)</span></div></div>
                 <div style={{color:"rgba(255,255,255,0.25)",fontSize:18,alignSelf:"center"}}>›</div>
               </div>
               <div style={{color:"rgba(255,255,255,0.35)",fontSize:11,marginBottom:7}}>Available Today:</div>
@@ -10762,17 +11542,295 @@ function PatientBook({setViewDoctor}) {
       {bookTab==="hospital"&&(
         <>
           <Card style={{padding:"10px 12px",display:"flex",gap:10,alignItems:"center"}}><span>🔍</span><span style={{color:"rgba(255,255,255,0.28)",fontSize:12}}>Search hospital, city…</span></Card>
-          {hosps.map((h,i)=>(
-            <Card key={i}>
+          {hosps.map((h,i)=>{
+            const docCount=HOSPITAL_ONBOARDED_DOCTORS.filter(d=>d.hospitalId===h.id).length;
+            return (
+            <Card key={h.id}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:9}}>
-                <div><div style={{color:"#fff",fontWeight:700,fontSize:13}}>{h.name}</div><div style={{color:"rgba(255,255,255,0.42)",fontSize:11}}>{h.city} · {h.beds} beds</div><div style={{display:"flex",gap:8,marginTop:3}}><span style={{color:"#F4A012",fontSize:11}}>⭐ {h.rating}</span><span style={{color:"rgba(255,255,255,0.35)",fontSize:11}}>OPD: {h.opd}</span></div></div>
+                <div><div style={{color:"#fff",fontWeight:700,fontSize:13}}>{h.name}</div><div style={{color:"rgba(255,255,255,0.42)",fontSize:11}}>{h.city} · {h.beds} beds</div><div style={{display:"flex",gap:8,marginTop:3}}><span style={{color:"#F4A012",fontSize:11}}>⭐ {h.rating}</span><span style={{color:"rgba(255,255,255,0.35)",fontSize:11}}>{docCount} doctor{docCount!==1?"s":""} onboarded</span></div></div>
               </div>
-              <div style={{marginBottom:9}}>{h.depts.map(d=><Tag key={d} color="#5E35B1">{d}</Tag>)}</div>
-              <Btn onClick={()=>bookOPD(h)} style={{width:"100%",fontSize:12}}>Book OPD Appointment</Btn>
+              <div style={{marginBottom:9}}>{h.specialties.slice(0,4).map(d=><Tag key={d} color="#5E35B1">{d}</Tag>)}</div>
+              <Btn onClick={()=>{setOpdHospital(h);setOpdDoc(null);setOpdSlot(null);}} style={{width:"100%",fontSize:12}}>Book OPD Appointment</Btn>
             </Card>
+          );})}
+        </>
+      )}
+      </>)}
+    </div>
+  );
+}
+
+// ── My Appointments — reschedule/cancel management ──
+const RESCHEDULE_SLOTS=["9:00 AM","10:30 AM","12:00 PM","2:00 PM","4:30 PM"];
+function MyAppointments({onBack}){
+  const [list,setList]=useState([...PATIENT_APPOINTMENTS_DB]);
+  const [rescheduling,setRescheduling]=useState(null);
+  const [confirmCancel,setConfirmCancel]=useState(null);
+  const [toast,setToast]=useState("");
+  const showT=m=>{setToast(m);setTimeout(()=>setToast(""),2500);};
+
+  const doReschedule=(apt,slot)=>{
+    const idx=PATIENT_APPOINTMENTS_DB.findIndex(a=>a.id===apt.id);
+    if(idx>=0){PATIENT_APPOINTMENTS_DB[idx].time=slot;PATIENT_APPOINTMENTS_DB[idx].date="Rescheduled";PATIENT_APPOINTMENTS_DB[idx].rescheduledCount=(PATIENT_APPOINTMENTS_DB[idx].rescheduledCount||0)+1;}
+    setList([...PATIENT_APPOINTMENTS_DB]);
+    setRescheduling(null);
+    showT(`✅ Rescheduled to ${slot} — no refund applies to rescheduled bookings`);
+  };
+  const doCancel=(apt)=>{
+    const idx=PATIENT_APPOINTMENTS_DB.findIndex(a=>a.id===apt.id);
+    if(idx>=0) PATIENT_APPOINTMENTS_DB[idx].status="cancelled";
+    setList([...PATIENT_APPOINTMENTS_DB]);
+    setConfirmCancel(null);
+    showT("Appointment cancelled");
+  };
+
+  const upcoming=list.filter(a=>a.status==="upcoming");
+  const cancelled=list.filter(a=>a.status==="cancelled");
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>📅 My Appointments</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>{upcoming.length} upcoming</div></div>
+      </div>
+      {toast&&<div style={{background:"rgba(0,201,167,0.1)",border:"1px solid rgba(0,201,167,0.3)",borderRadius:11,padding:"8px 12px",marginBottom:12,color:"#00C9A7",fontSize:11,fontWeight:700,textAlign:"center"}}>{toast}</div>}
+
+      {upcoming.length===0&&<Card style={{textAlign:"center",padding:"28px 16px"}}><div style={{fontSize:32,marginBottom:8}}>📭</div><div style={{color:"rgba(255,255,255,0.4)",fontSize:11.5}}>No upcoming appointments</div></Card>}
+
+      {upcoming.map(a=>(
+        <div key={a.id} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,padding:13,marginBottom:10}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+            <div>
+              <div style={{color:"#fff",fontWeight:700,fontSize:12.5}}>{a.type==="doctor"?"🩺":"🏥"} {a.title}</div>
+              <div style={{color:"rgba(255,255,255,0.45)",fontSize:10.5,marginTop:2}}>{a.sub}</div>
+              <div style={{color:"rgba(255,255,255,0.35)",fontSize:9.5,marginTop:2}}>For: {a.forName}</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{color:"#00C9A7",fontWeight:700,fontSize:11}}>{a.time}</div>
+              <div style={{color:"rgba(255,255,255,0.3)",fontSize:9}}>{a.date}</div>
+            </div>
+          </div>
+          {rescheduling===a.id?(
+            <div style={{background:"rgba(0,102,204,0.06)",border:"1px solid rgba(0,102,204,0.2)",borderRadius:10,padding:10}}>
+              <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:7}}>Choose a new slot:</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
+                {RESCHEDULE_SLOTS.map(s=>(
+                  <div key={s} onClick={()=>doReschedule(a,s)} style={{padding:"6px 10px",borderRadius:8,background:"rgba(0,102,204,0.15)",border:"1px solid rgba(0,102,204,0.3)",color:"#4A9DFF",fontSize:10,fontWeight:700,cursor:"pointer"}}>{s}</div>
+                ))}
+              </div>
+              <div style={{color:"#F4A012",fontSize:9,marginBottom:8,lineHeight:1.5}}>⚠️ One-time emergency reschedule only — no refund applies. Further changes need Admin support.</div>
+              <button onClick={()=>setRescheduling(null)} style={{background:"none",border:"none",color:"rgba(255,255,255,0.4)",fontSize:10,cursor:"pointer"}}>Cancel</button>
+            </div>
+          ):confirmCancel===a.id?(
+            <div style={{background:"rgba(255,71,87,0.06)",border:"1px solid rgba(255,71,87,0.25)",borderRadius:10,padding:10}}>
+              <div style={{color:"#fff",fontSize:11,marginBottom:8,textAlign:"center"}}>Cancel this appointment?</div>
+              <div style={{display:"flex",gap:7}}>
+                <button onClick={()=>setConfirmCancel(null)} style={{flex:1,padding:8,background:"rgba(255,255,255,0.08)",border:"none",borderRadius:8,color:"#fff",fontSize:10.5,cursor:"pointer"}}>Keep It</button>
+                <button onClick={()=>doCancel(a)} style={{flex:1,padding:8,background:"linear-gradient(135deg,#FF4757,#B71C1C)",border:"none",borderRadius:8,color:"#fff",fontSize:10.5,fontWeight:700,cursor:"pointer"}}>Yes, Cancel</button>
+              </div>
+            </div>
+          ):(
+            <div>
+              <div style={{display:"flex",gap:7}}>
+                <button onClick={()=>setRescheduling(a.id)} disabled={(a.rescheduledCount||0)>=1} style={{flex:1,background:(a.rescheduledCount||0)>=1?"rgba(255,255,255,0.04)":"rgba(0,102,204,0.1)",border:(a.rescheduledCount||0)>=1?"1px solid rgba(255,255,255,0.08)":"1px solid rgba(0,102,204,0.3)",borderRadius:9,padding:"8px",color:(a.rescheduledCount||0)>=1?"rgba(255,255,255,0.25)":"#4A9DFF",fontSize:10.5,fontWeight:700,cursor:(a.rescheduledCount||0)>=1?"not-allowed":"pointer"}}>{(a.rescheduledCount||0)>=1?"🔒 Already Rescheduled":"🔄 Reschedule"}</button>
+                <button onClick={()=>setConfirmCancel(a.id)} style={{flex:1,background:"rgba(255,71,87,0.08)",border:"1px solid rgba(255,71,87,0.25)",borderRadius:9,padding:"8px",color:"#FF6B81",fontSize:10.5,fontWeight:700,cursor:"pointer"}}>✕ Cancel</button>
+              </div>
+              {(a.rescheduledCount||0)>=1&&<div style={{color:"rgba(255,255,255,0.3)",fontSize:8.5,marginTop:6,textAlign:"center"}}>One-time emergency reschedule already used for this booking.</div>}
+            </div>
+          )}
+        </div>
+      ))}
+
+      {cancelled.length>0&&(
+        <>
+          <div style={{color:"rgba(255,255,255,0.3)",fontSize:9.5,fontWeight:800,letterSpacing:.5,margin:"14px 0 8px",textTransform:"uppercase"}}>Cancelled</div>
+          {cancelled.map(a=>(
+            <div key={a.id} style={{background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.05)",borderRadius:12,padding:11,marginBottom:7,opacity:0.55}}>
+              <div style={{color:"rgba(255,255,255,0.5)",fontSize:11,fontWeight:600,textDecoration:"line-through"}}>{a.title}</div>
+              <div style={{color:"rgba(255,255,255,0.3)",fontSize:9.5,marginTop:2}}>{a.sub} · {a.time}</div>
+            </div>
           ))}
         </>
       )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// 🎥 VIDEO TELECONSULTATION — patient booking + call UI + doctor side
+// ═══════════════════════════════════════════════════════════════════
+const TELECONSULT_AVAILABLE_NOW=[
+  {id:"tc1",name:"Dr. Suresh Mehta",specialty:"Cardiology",photo:"🧑‍⚕️",fee:499,waitMin:2,rating:4.8},
+  {id:"tc2",name:"Dr. Meera Iyer",specialty:"Pediatrics",photo:"👩‍⚕️",fee:399,waitMin:1,rating:4.9},
+  {id:"tc3",name:"Dr. Aditya Rao",specialty:"Psychiatry",photo:"🧑‍⚕️",fee:599,waitMin:4,rating:4.7},
+  {id:"tc4",name:"Dr. Sneha Pillai",specialty:"Dermatology",photo:"👩‍⚕️",fee:449,waitMin:3,rating:4.5},
+];
+function TeleconsultFlow({onBack,dependent}){
+  const [step,setStep]=useState("select"); // select | waiting | call | summary
+  const [doc,setDoc]=useState(null);
+  const [elapsed,setElapsed]=useState(0);
+  const [micOn,setMicOn]=useState(true);
+  const [camOn,setCamOn]=useState(true);
+  const [rating,setRating]=useState(0);
+  const patientPct=PLATFORM_COMMISSION.doctorBooking.patientPct;
+
+  useEffect(()=>{
+    if(step==="waiting"){
+      const t=setTimeout(()=>setStep("call"),3000);
+      return()=>clearTimeout(t);
+    }
+  },[step]);
+  useEffect(()=>{
+    if(step==="call"){
+      const iv=setInterval(()=>setElapsed(e=>e+1),1000);
+      return()=>clearInterval(iv);
+    }
+  },[step]);
+  const fmt=s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+
+  if(step==="summary") return (
+    <div style={{textAlign:"center",padding:"40px 16px"}}>
+      <div style={{fontSize:52,marginBottom:14}}>✅</div>
+      <div style={{color:"#fff",fontWeight:900,fontSize:17,fontFamily:"Playfair Display,serif",marginBottom:6}}>Consultation Complete</div>
+      <div style={{color:"rgba(255,255,255,0.45)",fontSize:12,marginBottom:18,lineHeight:1.6}}>You spoke with {doc.name} for {fmt(elapsed)}{dependent?` regarding ${dependent.name}`:""}.</div>
+      <div style={{background:"rgba(0,201,167,0.08)",border:"1px solid rgba(0,201,167,0.25)",borderRadius:14,padding:14,marginBottom:16,textAlign:"left"}}>
+        <div style={{color:"#00C9A7",fontWeight:800,fontSize:11,marginBottom:6}}>💊 e-PRESCRIPTION ISSUED</div>
+        <div style={{color:"rgba(255,255,255,0.6)",fontSize:11,lineHeight:1.6}}>Tab. Azithromycin 500mg — OD × 3 days<br/>Syrup Cough Relief — 10ml TDS × 5 days<br/><span style={{color:"rgba(255,255,255,0.35)",fontSize:9.5}}>Auto-sent to Pharmacy Portal for fulfillment</span></div>
+      </div>
+      <div style={{marginBottom:16}}>
+        <div style={{color:"rgba(255,255,255,0.4)",fontSize:10,marginBottom:8}}>Rate this consultation</div>
+        <StarRow value={rating} size={26} onRate={setRating}/>
+      </div>
+      <MBtn onClick={onBack} style={{width:"100%"}}>Back to Dashboard</MBtn>
+    </div>
+  );
+
+  if(step==="call") return (
+    <div style={{position:"relative",height:700,background:"#000",borderRadius:0,overflow:"hidden"}}>
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(160deg,#1a2332,#0A1628)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <div style={{textAlign:"center"}}>
+          <div style={{fontSize:70,marginBottom:10}}>{doc.photo}</div>
+          <div style={{color:"#fff",fontWeight:800,fontSize:15}}>{doc.name}</div>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:11,marginTop:2}}>{doc.specialty}</div>
+        </div>
+      </div>
+      <div style={{position:"absolute",top:14,left:14,background:"rgba(255,71,87,0.85)",borderRadius:8,padding:"4px 10px",display:"flex",alignItems:"center",gap:5}}>
+        <div style={{width:6,height:6,borderRadius:"50%",background:"#fff"}} className="pu"/>
+        <span style={{color:"#fff",fontSize:10,fontWeight:800}}>{fmt(elapsed)}</span>
+      </div>
+      <div style={{position:"absolute",top:14,right:14,width:70,height:95,borderRadius:12,background:camOn?"linear-gradient(135deg,#2a3a52,#1a2332)":"#000",border:"1.5px solid rgba(255,255,255,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>{camOn?(dependent?"🧒":"🙂"):"📷"}</div>
+      <div style={{position:"absolute",bottom:26,left:0,right:0,display:"flex",justifyContent:"center",gap:14}}>
+        <div onClick={()=>setMicOn(m=>!m)} style={{width:52,height:52,borderRadius:"50%",background:micOn?"rgba(255,255,255,0.15)":"#FF4757",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,cursor:"pointer"}}>{micOn?"🎤":"🔇"}</div>
+        <div onClick={()=>setStep("summary")} style={{width:62,height:62,borderRadius:"50%",background:"linear-gradient(135deg,#FF4757,#B71C1C)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,cursor:"pointer"}}>📞</div>
+        <div onClick={()=>setCamOn(c=>!c)} style={{width:52,height:52,borderRadius:"50%",background:camOn?"rgba(255,255,255,0.15)":"#FF4757",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,cursor:"pointer"}}>{camOn?"📹":"🚫"}</div>
+      </div>
+    </div>
+  );
+
+  if(step==="waiting") return (
+    <div style={{textAlign:"center",padding:"60px 20px"}}>
+      <div style={{width:90,height:90,borderRadius:"50%",background:"rgba(0,201,167,0.12)",border:"2px solid rgba(0,201,167,0.35)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:40,margin:"0 auto 20px",animation:"pu 1.4s ease infinite"}}>{doc.photo}</div>
+      <div style={{color:"#fff",fontWeight:800,fontSize:15,marginBottom:6}}>Connecting you to {doc.name}…</div>
+      <div style={{color:"rgba(255,255,255,0.4)",fontSize:11.5,marginBottom:20}}>{dependent?`Consulting for ${dependent.name} · `:""}Please keep your camera and mic ready</div>
+      <div style={{display:"flex",justifyContent:"center",gap:20,marginBottom:24}}>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6}}><div style={{fontSize:22}}>{micOn?"🎤":"🔇"}</div><div onClick={()=>setMicOn(m=>!m)} style={{fontSize:9,color:"rgba(255,255,255,0.4)",cursor:"pointer"}}>Mic {micOn?"On":"Off"}</div></div>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6}}><div style={{fontSize:22}}>{camOn?"📹":"🚫"}</div><div onClick={()=>setCamOn(c=>!c)} style={{fontSize:9,color:"rgba(255,255,255,0.4)",cursor:"pointer"}}>Camera {camOn?"On":"Off"}</div></div>
+      </div>
+      <MBtn secondary onClick={onBack}>Cancel</MBtn>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>🎥 Video Consultation</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>{dependent?`Booking for ${dependent.name}`:"Doctors available now"}</div></div>
+      </div>
+      <div style={{background:"rgba(0,201,167,0.06)",border:"1px solid rgba(0,201,167,0.2)",borderRadius:12,padding:"10px 13px",marginBottom:14,fontSize:10.5,color:"rgba(255,255,255,0.5)",lineHeight:1.6}}>ℹ️ Video consultations are for non-emergency concerns. For urgent or emergency care, use the 🆘 SOS button or visit the nearest hospital.</div>
+      <div style={{background:"rgba(244,160,18,0.06)",border:"1px solid rgba(244,160,18,0.2)",borderRadius:11,padding:"9px 12px",marginBottom:14,fontSize:9.5,color:"rgba(255,255,255,0.45)",lineHeight:1.6}}>💰 A {patientPct}% platform fee is added to your payable amount, and a separate {PLATFORM_COMMISSION.doctorBooking.pct}% is deducted from the doctor payout — shown transparently to both sides at booking.</div>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {TELECONSULT_AVAILABLE_NOW.map(d=>(
+          <div key={d.id} onClick={()=>{setDoc(d);setStep("waiting");}} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,padding:13,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+            <div style={{position:"relative"}}>
+              <div style={{width:44,height:44,borderRadius:13,background:"rgba(0,201,167,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22}}>{d.photo}</div>
+              <div style={{position:"absolute",bottom:-2,right:-2,width:12,height:12,borderRadius:"50%",background:"#00C9A7",border:"2px solid #070E1A"}}/>
+            </div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{color:"#fff",fontWeight:700,fontSize:12.5}}>{d.name}</div>
+              <div style={{color:"rgba(255,255,255,0.45)",fontSize:10}}>{d.specialty} · ⭐ {d.rating}</div>
+              <div style={{color:"#00C9A7",fontSize:9.5,fontWeight:700,marginTop:2}}>🟢 Available now · ~{d.waitMin} min wait</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{color:"#fff",fontWeight:800,fontSize:13}}>₹{Math.round(d.fee*(1+patientPct/100))}</div>
+              <div style={{color:"rgba(255,255,255,0.3)",fontSize:8.5}}>₹{d.fee} + ₹{Math.round(d.fee*patientPct/100)} fee</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Doctor-side view of the daily video consultation queue ──
+const DOCTOR_TELECONSULT_QUEUE=[
+  {id:"q1",patient:"Ananya Sharma",age:34,reason:"Follow-up: BP medication review",time:"10:30 AM",status:"waiting"},
+  {id:"q2",patient:"Rohan Sharma",age:35,reason:"Persistent cough, 5 days",time:"11:00 AM",status:"upcoming"},
+  {id:"q3",patient:"Aarav Sharma (age 8)",age:8,reason:"Fever + rash — parent consult",time:"11:30 AM",status:"upcoming"},
+];
+function DoctorTeleconsultQueue({onBack}){
+  const [inCall,setInCall]=useState(null);
+  const [elapsed,setElapsed]=useState(0);
+  useEffect(()=>{
+    if(inCall){
+      const iv=setInterval(()=>setElapsed(e=>e+1),1000);
+      return()=>clearInterval(iv);
+    }
+  },[inCall]);
+  const fmt=s=>`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
+
+  if(inCall) return (
+    <div style={{position:"relative",height:700,background:"#000",overflow:"hidden"}}>
+      <div style={{position:"absolute",inset:0,background:"linear-gradient(160deg,#1a2332,#0A1628)",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <div style={{textAlign:"center"}}>
+          <div style={{fontSize:70,marginBottom:10}}>🙂</div>
+          <div style={{color:"#fff",fontWeight:800,fontSize:15}}>{inCall.patient}</div>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:11,marginTop:2}}>{inCall.reason}</div>
+        </div>
+      </div>
+      <div style={{position:"absolute",top:14,left:14,background:"rgba(255,71,87,0.85)",borderRadius:8,padding:"4px 10px"}}><span style={{color:"#fff",fontSize:10,fontWeight:800}}>{fmt(elapsed)}</span></div>
+      <div style={{position:"absolute",bottom:26,left:0,right:0,display:"flex",justifyContent:"center",gap:14}}>
+        <div style={{width:52,height:52,borderRadius:"50%",background:"rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🎤</div>
+        <div onClick={()=>{setInCall(null);setElapsed(0);}} style={{width:62,height:62,borderRadius:"50%",background:"linear-gradient(135deg,#FF4757,#B71C1C)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,cursor:"pointer"}}>📞</div>
+        <div style={{width:52,height:52,borderRadius:"50%",background:"rgba(255,255,255,0.15)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>📹</div>
+      </div>
+      <div style={{position:"absolute",bottom:100,left:14,right:14,background:"rgba(255,255,255,0.08)",borderRadius:10,padding:"8px 12px",fontSize:10,color:"rgba(255,255,255,0.6)"}}>📝 e-Prescription will auto-sync to Patient EMR & Pharmacy Portal on call end.</div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>🎥 Video Consultations Today</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>{DOCTOR_TELECONSULT_QUEUE.length} scheduled</div></div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {DOCTOR_TELECONSULT_QUEUE.map(q=>(
+          <div key={q.id} style={{background:q.status==="waiting"?"rgba(0,201,167,0.08)":"rgba(255,255,255,0.03)",border:`1px solid ${q.status==="waiting"?"rgba(0,201,167,0.3)":"rgba(255,255,255,0.08)"}`,borderRadius:14,padding:13}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+              <div>
+                <div style={{color:"#fff",fontWeight:700,fontSize:12.5}}>{q.patient}</div>
+                <div style={{color:"rgba(255,255,255,0.45)",fontSize:10.5,marginTop:2}}>{q.reason}</div>
+              </div>
+              <div style={{color:"rgba(255,255,255,0.4)",fontSize:10,fontWeight:700}}>{q.time}</div>
+            </div>
+            {q.status==="waiting"?(
+              <MBtn onClick={()=>setInCall(q)} style={{width:"100%",background:"linear-gradient(135deg,#00C9A7,#0066CC)"}}>🎥 Patient Waiting — Start Call</MBtn>
+            ):(
+              <div style={{color:"rgba(255,255,255,0.3)",fontSize:10,textAlign:"center",padding:"8px 0"}}>Scheduled — not yet started</div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -10781,6 +11839,13 @@ function PatientRatings({docRatings,setDocRatings,hospRatings,setHospRatings}) {
   const [rTab,setRTab]=useState("doctor");
   const [reviews,setReviews]=useState({1:"",2:"",3:""});
   const [hospReviews,setHospReviews]=useState({1:"",2:""});
+  const [submittedDocs,setSubmittedDocs]=useState({});
+  const [submittedHosps,setSubmittedHosps]=useState({});
+  const HOSP_CATEGORIES=["Overall Experience","Cleanliness","Doctor Quality","Staff Behaviour","Wait Time"];
+  const [hospCatRatings,setHospCatRatings]=useState({
+    1:Object.fromEntries(HOSP_CATEGORIES.map(c=>[c,4])),
+    2:Object.fromEntries(HOSP_CATEGORIES.map(c=>[c,4])),
+  });
   const docs=[{id:1,name:"Dr. Anand Rao",spec:"Cardiologist",hosp:"Apollo Hospitals"},{id:2,name:"Dr. Priya Menon",spec:"Neurologist",hosp:"Fortis"},{id:3,name:"Dr. Rajan Nair",spec:"General Physician",hosp:"Manipal"}];
   const hosps=[{id:1,name:"Apollo Hospitals Mumbai"},{id:2,name:"Fortis Memorial Gurgaon"}];
   return (
@@ -10802,7 +11867,7 @@ function PatientRatings({docRatings,setDocRatings,hospRatings,setHospRatings}) {
             {docRatings[d.id]>0&&<div style={{marginTop:8,color:"#F4A012",fontSize:12,fontWeight:600}}>{["","Poor","Fair","Good","Very Good","Excellent"][docRatings[d.id]]} · {docRatings[d.id]} / 5</div>}
           </div>
           <textarea value={reviews[d.id]||""} onChange={e=>setReviews({...reviews,[d.id]:e.target.value})} placeholder="Write a review (optional)…" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:9,color:"rgba(255,255,255,0.65)",fontSize:12,padding:"9px 11px",minHeight:60,resize:"none",fontFamily:"Outfit"}}/>
-          <Btn style={{width:"100%",marginTop:9,fontSize:12}} onClick={()=>{}}>Submit Rating</Btn>
+          <Btn style={{width:"100%",marginTop:9,fontSize:12,background:submittedDocs[d.id]?"linear-gradient(135deg,#00C9A7,#00594C)":undefined}} disabled={!docRatings[d.id]} onClick={()=>{setSubmittedDocs(p=>({...p,[d.id]:true}));setTimeout(()=>setSubmittedDocs(p=>({...p,[d.id]:false})),2500);}}>{submittedDocs[d.id]?"✓ Rating Submitted":"Submit Rating"}</Btn>
         </Card>
       ))}
       {rTab==="hospital"&&hosps.map((h,i)=>(
@@ -10812,15 +11877,15 @@ function PatientRatings({docRatings,setDocRatings,hospRatings,setHospRatings}) {
             <div style={{color:"#fff",fontWeight:700,fontSize:13}}>{h.name}</div>
           </div>
           <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:9}}>
-            {["Overall Experience","Cleanliness","Doctor Quality","Staff Behaviour","Wait Time"].map((cat,ci)=>(
+            {HOSP_CATEGORIES.map((cat)=>(
               <div key={cat}>
                 <div style={{color:"rgba(255,255,255,0.42)",fontSize:11,marginBottom:4}}>{cat}</div>
-                <StarRating value={Math.floor(Math.random()*2)+3} onChange={()=>{}} size={20}/>
+                <StarRating value={hospCatRatings[h.id]?.[cat]||0} onChange={v=>setHospCatRatings(p=>({...p,[h.id]:{...p[h.id],[cat]:v}}))} size={20}/>
               </div>
             ))}
           </div>
           <textarea value={hospReviews[h.id]||""} onChange={e=>setHospReviews({...hospReviews,[h.id]:e.target.value})} placeholder="Share your hospital experience…" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:9,color:"rgba(255,255,255,0.65)",fontSize:12,padding:"9px 11px",minHeight:60,resize:"none",fontFamily:"Outfit"}}/>
-          <Btn style={{width:"100%",marginTop:9,fontSize:12}}>Submit Hospital Rating</Btn>
+          <Btn style={{width:"100%",marginTop:9,fontSize:12,background:submittedHosps[h.id]?"linear-gradient(135deg,#00C9A7,#00594C)":undefined}} onClick={()=>{setSubmittedHosps(p=>({...p,[h.id]:true}));setTimeout(()=>setSubmittedHosps(p=>({...p,[h.id]:false})),2500);}}>{submittedHosps[h.id]?"✓ Rating Submitted":"Submit Hospital Rating"}</Btn>
         </Card>
       ))}
     </div>
@@ -10996,7 +12061,15 @@ function VerificationSubmit({roleId,roleName,onBack}) {
         </div>
       </Card>
 
-      <Btn onClick={()=>allUploaded&&agreed&&tcAgreed&&setSubmitted(true)}
+      <Btn onClick={()=>{
+        if(!(allUploaded&&agreed&&tcAgreed)) return;
+        VERIFY_QUEUE.push({
+          id:"v"+Date.now(),roleId,name:roleName+" Applicant",org:"Submitted via app",
+          submitted:new Date().toISOString().slice(0,10),status:"pending",
+          docs:{...uploads},details:{},flags:[],
+        });
+        setSubmitted(true);
+      }}
         style={{opacity:allUploaded&&agreed&&tcAgreed?1:0.4,cursor:allUploaded&&agreed&&tcAgreed?"pointer":"not-allowed",fontSize:14,padding:"14px"}}>
         {!allUploaded?`Complete ${Object.values(uploads).filter(b=>!b).length} remaining uploads to proceed`:!tcAgreed?"Accept Terms & Conditions to proceed":"Submit for Verification 🛡️"}
       </Btn>
@@ -11011,14 +12084,28 @@ function VerificationSubmit({roleId,roleName,onBack}) {
 // ADMIN PORTAL — VENDOR MANAGEMENT
 // ══════════════════════════════════════════════════════
 // ── Platform Revenue & Commission Analytics — makes the monetization model explicit ──
+const REVENUE_PERIODS=["daily","weekly","monthly","quarterly"];
 const REVENUE_STREAMS=[
-  {id:"jobs",icon:"💼",label:"Job Placement Fees",desc:"% fee on successful hospital/employer hires via AI matching",thisMonth:842000,lastMonth:718000,color:"#4A9DFF"},
-  {id:"marketplace",icon:"🛒",label:"E-Marketplace Commission",desc:"Commission on Special Needs, Resale & Medical Device sales",thisMonth:316000,lastMonth:289000,color:"#FF6F00"},
-  {id:"pharmacy",icon:"💊",label:"Pharmacy & Diagnostics Commission",desc:"Per-order commission on catalogue sales & test bookings",thisMonth:498000,lastMonth:452000,color:"#00897B"},
-  {id:"premium",icon:"💎",label:"STETHOSCO Premium Subscriptions",desc:"Plus & Family membership recurring revenue",thisMonth:267000,lastMonth:198000,color:"#00C9A7"},
-  {id:"insurance",icon:"🛡️",label:"Insurance Referral Commission",desc:"Empanelment & policy referral fees from insurers",thisMonth:184000,lastMonth:171000,color:"#1A6B8A"},
-  {id:"featured",icon:"⭐",label:"Featured / Sponsored Listings",desc:"Vendors & institutes paying to boost listing visibility",thisMonth:126000,lastMonth:94000,color:"#F4A012"},
-  {id:"travel",icon:"✈️",label:"Medical Travel Facilitation Fees",desc:"Package coordination fee for international patients",thisMonth:389000,lastMonth:340000,color:"#1565C0"},
+  {id:"boost",icon:"🚀",label:"Boost Center (11 Verticals)",desc:"Doctor, Medicos, Hospital, Pharmacy, Diagnostic, Travel, Marketplace, College, Employer, Insurance & Ambulance Boost plans",color:"#F4A012",
+    daily:{cur:41200,prev:36800},weekly:{cur:288000,prev:251000},monthly:{cur:1240000,prev:1062000},quarterly:{cur:3580000,prev:2940000}},
+  {id:"jobs",icon:"💼",label:"Job Placement & Employer Fees",desc:"Job-post fees & % fee on successful hires via AI matching",color:"#4A9DFF",
+    daily:{cur:28100,prev:23900},weekly:{cur:196000,prev:167000},monthly:{cur:842000,prev:718000},quarterly:{cur:2410000,prev:2050000}},
+  {id:"pharmacy",icon:"💊",label:"Pharmacy Order Commission",desc:"12% commission on medicine order fulfilment",color:"#00897B",
+    daily:{cur:16400,prev:14900},weekly:{cur:114000,prev:104000},monthly:{cur:498000,prev:452000},quarterly:{cur:1430000,prev:1290000}},
+  {id:"diagnostic",icon:"🔬",label:"Diagnostic Booking Commission",desc:"12% commission on test bookings & home collection",color:"#0288D1",
+    daily:{cur:9800,prev:8700},weekly:{cur:68000,prev:61000},monthly:{cur:296000,prev:266000},quarterly:{cur:851000,prev:762000}},
+  {id:"marketplace",icon:"🛒",label:"E-Marketplace Commission",desc:"15% commission on equipment & assistive-tech sales",color:"#FF6F00",
+    daily:{cur:10400,prev:9500},weekly:{cur:73000,prev:66000},monthly:{cur:316000,prev:289000},quarterly:{cur:908000,prev:822000}},
+  {id:"premium",icon:"💎",label:"Patient Premium Subscriptions",desc:"Plus & Family membership recurring revenue",color:"#00C9A7",
+    daily:{cur:8900,prev:6600},weekly:{cur:62000,prev:46000},monthly:{cur:267000,prev:198000},quarterly:{cur:768000,prev:560000}},
+  {id:"insurance",icon:"🛡️",label:"Insurance Referral Commission",desc:"5% empanelment & policy referral fees",color:"#1A6B8A",
+    daily:{cur:6100,prev:5700},weekly:{cur:43000,prev:40000},monthly:{cur:184000,prev:171000},quarterly:{cur:529000,prev:491000}},
+  {id:"travel",icon:"✈️",label:"Medical Travel Facilitation Fees",desc:"% facilitation fee on international patient packages",color:"#1565C0",
+    daily:{cur:13000,prev:11300},weekly:{cur:91000,prev:79000},monthly:{cur:389000,prev:340000},quarterly:{cur:1120000,prev:975000}},
+  {id:"ambulance",icon:"🚑",label:"Ambulance Dispatch Commission",desc:"10% commission on completed emergency dispatches",color:"#FF4757",
+    daily:{cur:4200,prev:3800},weekly:{cur:29000,prev:26000},monthly:{cur:126000,prev:112000},quarterly:{cur:362000,prev:321000}},
+  {id:"bloodbank",icon:"🩸",label:"Blood Bank Facilitation Fees",desc:"6% fee on paid logistics only — donation itself is always free",color:"#E53935",
+    daily:{cur:1100,prev:950},weekly:{cur:7700,prev:6600},monthly:{cur:33000,prev:28000},quarterly:{cur:95000,prev:81000}},
 ];
 const COST_SAVINGS=[
   {icon:"🤖",label:"AI Symptom Checker",desc:"Deflects low-acuity consultations before they reach a doctor's queue",metric:"~34% of triage sessions resolved without a booking"},
@@ -11026,30 +12113,86 @@ const COST_SAVINGS=[
   {icon:"📄",label:"Automated Credential Verification",desc:"Document/registration checks reduce manual admin review time",metric:"~2.5 days saved per vendor onboarding"},
   {icon:"🔔",label:"Automated Appointment Reminders",desc:"SMS/WhatsApp reminders reduce costly no-shows",metric:"~22% reduction in missed appointments"},
 ];
-function RevenueAnalyticsDashboard({onBack}){
-  const totalThis=REVENUE_STREAMS.reduce((s,r)=>s+r.thisMonth,0);
-  const totalLast=REVENUE_STREAMS.reduce((s,r)=>s+r.lastMonth,0);
-  const growthPct=(((totalThis-totalLast)/totalLast)*100).toFixed(1);
+function RevenueAnalyticsDashboard({onBack,setTab}){
+  const [period,setPeriod]=useState("monthly");
   const fmt=n=>"₹"+(n>=100000?(n/100000).toFixed(2)+"L":n.toLocaleString());
+  const totalThis=REVENUE_STREAMS.reduce((s,r)=>s+r[period].cur,0);
+  const totalLast=REVENUE_STREAMS.reduce((s,r)=>s+r[period].prev,0);
+  const growthPct=(((totalThis-totalLast)/totalLast)*100).toFixed(1);
+  const periodLabel={daily:"Today",weekly:"This Week",monthly:"This Month",quarterly:"This Quarter"};
+  const prevLabel={daily:"yesterday",weekly:"last week",monthly:"last month",quarterly:"last quarter"};
   return (
     <div>
       <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
         <BackBtn onClick={onBack}/>
         <div style={{color:"#fff",fontWeight:800,fontSize:14}}>💰 Revenue & Commission Analytics</div>
       </div>
-      <div style={{background:"linear-gradient(135deg,#0A2A24,#00594C)",borderRadius:16,padding:16,marginBottom:14}}>
-        <div style={{color:"rgba(255,255,255,0.55)",fontSize:10}}>Total Platform Revenue — This Month</div>
-        <div style={{color:"#fff",fontWeight:900,fontSize:24,fontFamily:"Playfair Display,serif",marginTop:2}}>{fmt(totalThis)}</div>
-        <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
-          <span style={{color:"#4CAF50",fontSize:11,fontWeight:800}}>▲ {growthPct}%</span>
-          <span style={{color:"rgba(255,255,255,0.4)",fontSize:10}}>vs last month ({fmt(totalLast)})</span>
-        </div>
+
+      <div style={{display:"flex",background:"rgba(255,255,255,0.05)",borderRadius:12,padding:4,gap:4,marginBottom:14}}>
+        {REVENUE_PERIODS.map(p=>(
+          <div key={p} onClick={()=>setPeriod(p)} style={{flex:1,textAlign:"center",padding:"8px 4px",borderRadius:9,background:period===p?"linear-gradient(135deg,#00594C,#00897B)":"transparent",color:period===p?"#fff":"rgba(255,255,255,0.4)",fontSize:10.5,fontWeight:period===p?700:500,cursor:"pointer",textTransform:"capitalize",transition:"all .2s"}}>{p}</div>
+        ))}
       </div>
 
-      <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:800,letterSpacing:.8,marginBottom:9}}>REVENUE STREAMS</div>
+      <div style={{background:"linear-gradient(135deg,#0A2A24,#00594C)",borderRadius:16,padding:16,marginBottom:14}}>
+        <div style={{color:"rgba(255,255,255,0.55)",fontSize:10}}>Total Platform Revenue — {periodLabel[period]}</div>
+        <div style={{color:"#fff",fontWeight:900,fontSize:24,fontFamily:"Playfair Display,serif",marginTop:2}}>{fmt(totalThis)}</div>
+        <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6}}>
+          <span style={{color:growthPct>=0?"#4CAF50":"#FF4757",fontSize:11,fontWeight:800}}>{growthPct>=0?"▲":"▼"} {Math.abs(growthPct)}%</span>
+          <span style={{color:"rgba(255,255,255,0.4)",fontSize:10}}>vs {prevLabel[period]} ({fmt(totalLast)})</span>
+        </div>
+        <div style={{color:"rgba(255,255,255,0.3)",fontSize:8.5,marginTop:8}}>Across {REVENUE_STREAMS.length} commission-bearing features · all payments processed via STETHOSCO Payment Gateway</div>
+      </div>
+
+      {setTab&&(
+        <div onClick={()=>setTab("commissions")} style={{background:"linear-gradient(135deg,rgba(244,160,18,0.2),rgba(244,160,18,0.06))",border:"1.5px solid rgba(244,160,18,0.4)",borderRadius:14,padding:"12px 14px",marginBottom:12,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+          <div style={{width:36,height:36,borderRadius:11,background:"rgba(244,160,18,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>⚙️</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{color:"#fff",fontWeight:800,fontSize:12}}>Manage Commission Rates</div>
+            <div style={{color:"rgba(255,255,255,0.45)",fontSize:9.5,marginTop:1}}>Edit every rate, tracked with a full change history</div>
+          </div>
+          <div style={{color:"#F4A012",fontSize:20,flexShrink:0}}>→</div>
+        </div>
+      )}
+
+      {setTab&&(
+        <div onClick={()=>setTab("referrals")} style={{background:"linear-gradient(135deg,rgba(0,201,167,0.2),rgba(0,201,167,0.06))",border:"1.5px solid rgba(0,201,167,0.4)",borderRadius:14,padding:"12px 14px",marginBottom:16,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+          <div style={{width:36,height:36,borderRadius:11,background:"rgba(0,201,167,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>🛡️</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{color:"#fff",fontWeight:800,fontSize:12}}>Referral Command Center</div>
+            <div style={{color:"rgba(255,255,255,0.45)",fontSize:9.5,marginTop:1}}>Every referral, every type, one dashboard</div>
+          </div>
+          <div style={{color:"#00C9A7",fontSize:20,flexShrink:0}}>→</div>
+        </div>
+      )}
+
+      {setTab&&(
+        <div onClick={()=>setTab("boostpricing")} style={{background:"linear-gradient(135deg,rgba(94,53,177,0.22),rgba(94,53,177,0.07))",border:"1.5px solid rgba(94,53,177,0.4)",borderRadius:14,padding:"12px 14px",marginBottom:16,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+          <div style={{width:36,height:36,borderRadius:11,background:"rgba(94,53,177,0.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>🚀</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{color:"#fff",fontWeight:800,fontSize:12}}>Boost Pricing Management</div>
+            <div style={{color:"rgba(255,255,255,0.45)",fontSize:9.5,marginTop:1}}>Edit price & services for all 11 verticals</div>
+          </div>
+          <div style={{color:"#AB47BC",fontSize:20,flexShrink:0}}>→</div>
+        </div>
+      )}
+
+      {setTab&&(
+        <div onClick={()=>setTab("paymentreceipts")} style={{background:"linear-gradient(135deg,rgba(0,102,204,0.22),rgba(0,102,204,0.07))",border:"1.5px solid rgba(0,102,204,0.4)",borderRadius:14,padding:"12px 14px",marginBottom:16,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+          <div style={{width:36,height:36,borderRadius:11,background:"rgba(0,102,204,0.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>🧾</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{color:"#fff",fontWeight:800,fontSize:12}}>Payment Receipts</div>
+            <div style={{color:"rgba(255,255,255,0.45)",fontSize:9.5,marginTop:1}}>Process & confirm receipts across every feature</div>
+          </div>
+          <div style={{color:"#4A9DFF",fontSize:20,flexShrink:0}}>→</div>
+        </div>
+      )}
+
+      <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:800,letterSpacing:.8,marginBottom:9}}>REVENUE BY FEATURE</div>
       {REVENUE_STREAMS.map((r,i)=>{
-        const growth=(((r.thisMonth-r.lastMonth)/r.lastMonth)*100).toFixed(1);
-        const share=((r.thisMonth/totalThis)*100).toFixed(0);
+        const cur=r[period].cur, prev=r[period].prev;
+        const growth=(((cur-prev)/prev)*100).toFixed(1);
+        const share=((cur/totalThis)*100).toFixed(0);
         return (
           <Card key={r.id} style={{marginBottom:9,animation:`su .3s ease ${i*.04}s both`}}>
             <div style={{display:"flex",gap:11,alignItems:"center",marginBottom:8}}>
@@ -11059,14 +12202,14 @@ function RevenueAnalyticsDashboard({onBack}){
                 <div style={{color:"rgba(255,255,255,0.35)",fontSize:9.5,marginTop:1}}>{r.desc}</div>
               </div>
               <div style={{textAlign:"right",flexShrink:0}}>
-                <div style={{color:r.color,fontWeight:900,fontSize:13}}>{fmt(r.thisMonth)}</div>
+                <div style={{color:r.color,fontWeight:900,fontSize:13}}>{fmt(cur)}</div>
                 <div style={{color:growth>=0?"#4CAF50":"#FF4757",fontSize:9,fontWeight:700}}>{growth>=0?"▲":"▼"} {Math.abs(growth)}%</div>
               </div>
             </div>
             <div style={{background:"rgba(255,255,255,0.06)",borderRadius:20,height:6,overflow:"hidden"}}>
               <div style={{width:`${share}%`,height:"100%",background:r.color,borderRadius:20}}/>
             </div>
-            <div style={{color:"rgba(255,255,255,0.3)",fontSize:8.5,marginTop:3}}>{share}% of total revenue</div>
+            <div style={{color:"rgba(255,255,255,0.3)",fontSize:8.5,marginTop:3}}>{share}% of total revenue this period</div>
           </Card>
         );
       })}
@@ -11173,7 +12316,11 @@ function AdminPortal({tab,setTab}){
 
   if(tab==="analytics") return <AdminAnalytics vendors={vendors}/>;
   if(tab==="interviews") return <AdminInterviewScheduler onBack={()=>setTab("dashboard")}/>;
-  if(tab==="revenue") return <RevenueAnalyticsDashboard onBack={()=>setTab("dashboard")}/>;
+  if(tab==="revenue") return <RevenueAnalyticsDashboard onBack={()=>setTab("dashboard")} setTab={setTab}/>;
+  if(tab==="commissions") return <CommissionManagementPanel onBack={()=>setTab("dashboard")}/>;
+  if(tab==="referrals") return <AdminReferralCenter onBack={()=>setTab("dashboard")}/>;
+  if(tab==="boostpricing") return <BoostPricingManagementPanel onBack={()=>setTab("dashboard")}/>;
+  if(tab==="paymentreceipts") return <AdminPaymentReceipts onBack={()=>setTab("dashboard")}/>;
 
   // Dashboard
   return(
@@ -11261,16 +12408,21 @@ function AdminAnalytics({vendors}){
 
 // ── Self-Declaration — required on every stakeholder registration/credential submission ──
 // ── Platform Commission Rates — transparent, per transaction type ──
+// Every commission rate below is routed through STETHOSCO Admin — see
+// CommissionManagementPanel. Rates can be revised over time or case-by-case,
+// within sane min/max bounds, with every change logged for audit purposes.
 const PLATFORM_COMMISSION = {
-  doctorBooking:{pct:10, label:"Doctor Consultation Booking", note:"Charged on the consultation fee at time of booking."},
-  pharmacyOrder:{pct:12, label:"Pharmacy Order", note:"Industry-standard e-pharmacy commission, deducted from vendor payout."},
-  diagnosticBooking:{pct:12, label:"Diagnostic Test Booking", note:"Industry-standard lab-aggregator commission, deducted from vendor payout."},
-  marketplaceSale:{pct:15, label:"E-Marketplace Sale", note:"Standard marketplace commission on assistive devices, resale & medical equipment."},
-  travelPackage:{pct:8, label:"Medical Travel Package", note:"Mutually agreed facilitation fee on confirmed treatment packages."},
-  insuranceBooking:{pct:5, label:"Insurance Policy / Empanelment", note:"Standard industry referral commission on policy issuance."},
-  ambulanceBooking:{pct:10, label:"Ambulance Booking", note:"Standard dispatch-booking commission, deducted from operator payout."},
-  placementFee:{pct:8.33, label:"Job Placement (≈1 month CTC)", note:"Standard recruitment-industry placement fee on confirmed hires."},
+  doctorBooking:{pct:10, patientPct:10, min:5, max:20, label:"Doctor Consultation Booking", note:"A 10% platform fee is deducted from the doctor's payout, and a separate 10% platform fee is added to the patient's payable amount — both sides contribute to the platform cost on every booking.", lastUpdated:"Initial rate — not yet revised"},
+  pharmacyOrder:{pct:12, min:8, max:18, label:"Pharmacy Order", note:"Industry-standard e-pharmacy commission, deducted from vendor payout.", lastUpdated:"Initial rate — not yet revised"},
+  diagnosticBooking:{pct:12, min:8, max:18, label:"Diagnostic Test Booking", note:"Industry-standard lab-aggregator commission, deducted from vendor payout.", lastUpdated:"Initial rate — not yet revised"},
+  marketplaceSale:{pct:15, min:8, max:22, label:"E-Marketplace Sale", note:"Standard marketplace commission on assistive devices, resale & medical equipment.", lastUpdated:"Initial rate — not yet revised"},
+  travelPackage:{pct:8, min:5, max:15, label:"Medical Travel Package", note:"Mutually agreed facilitation fee on confirmed treatment packages.", lastUpdated:"Initial rate — not yet revised"},
+  insuranceBooking:{pct:5, min:2, max:10, label:"Insurance Policy / Empanelment", note:"Standard industry referral commission on policy issuance.", lastUpdated:"Initial rate — not yet revised"},
+  ambulanceBooking:{pct:10, min:5, max:15, label:"Ambulance Booking", note:"Standard dispatch-booking commission, deducted from operator payout.", lastUpdated:"Initial rate — not yet revised"},
+  bloodbankBooking:{pct:6, min:3, max:10, label:"Blood Unit / Component Facilitation", note:"Standard facilitation fee on paid cross-match, testing & logistics services only — voluntary blood donation itself is never charged to donors or emergency requesters.", waiverNote:"⚠️ No commission is ever charged on voluntary, unpaid blood donation — only on optional paid facilitation services (rush delivery, component separation, courier logistics).", lastUpdated:"Initial rate — not yet revised"},
+  placementFee:{pct:8.33, min:5, max:12, label:"Job Placement (≈1 month CTC)", note:"Standard recruitment-industry placement fee on confirmed hires.", lastUpdated:"Initial rate — not yet revised"},
 };
+const COMMISSION_CHANGE_LOG=[];
 function CommissionDisclosure({type, amount}){
   const c = PLATFORM_COMMISSION[type];
   if(!c) return null;
@@ -11282,6 +12434,524 @@ function CommissionDisclosure({type, amount}){
         <div style={{color:"#F4A012",fontWeight:900,fontSize:13}}>{c.pct}%{fee?` (₹${fee.toLocaleString()})`:""}</div>
       </div>
       <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,marginTop:3,lineHeight:1.5}}>{c.note}</div>
+      {c.waiverNote&&<div style={{color:"#00C9A7",fontSize:9,marginTop:5,lineHeight:1.5,fontWeight:700}}>{c.waiverNote}</div>}
+    </div>
+  );
+}
+
+// ── Commission Management — every platform commission rate routed through ──
+// STETHOSCO Admin, editable over time or on a case-by-case basis, with every
+// change logged. Mutates PLATFORM_COMMISSION in place so every screen that
+// reads it (CommissionDisclosure, T&C blocks, referral widgets) reflects the
+// new rate immediately, with no separate sync step needed.
+// ── Generic "Refer to Admin" — available from every feature via Settings ──
+// A universal referral entry point for any portal without its own dedicated
+// referral mechanism (Job Opening Referral, Patient Case Referral). No
+// incentive amount or model is ever shown here. STETHOSCO Admin is the sole
+// concerned in-charge for reviewing what's referred, deciding whether an
+// incentive applies based on the type of referral, and settling it directly
+// and privately with the referring party, outside the application.
+const GENERIC_REFERRAL_TYPES=["Job Opening","Patient Case","Business / Vendor Lead","Partnership Opportunity","Institution / Facility","Other Opportunity"];
+const GENERIC_REFERRAL_DB=[];
+function GenericReferralWidget({onBack,role}){
+  const [view,setView]=useState("list");
+  const blank={type:GENERIC_REFERRAL_TYPES[0],org:"",description:"",contactName:"",contactPhone:"",contactEmail:""};
+  const [form,setForm]=useState(blank);
+  const F=(k,v)=>setForm(p=>({...p,[k]:v}));
+  const [list,setList]=useState(GENERIC_REFERRAL_DB.filter(r=>r.fromRole===role.id));
+  const [lastCode,setLastCode]=useState("");
+
+  const submit=()=>{
+    if(!form.org.trim()||!form.description.trim()) return;
+    const code=`REF-GEN-${Math.floor(1000+Math.random()*9000)}`;
+    GENERIC_REFERRAL_DB.unshift({id:"gr"+Date.now(),code,fromRole:role.id,fromLabel:role.label,...form,date:"Just now",status:"sent"});
+    setList(GENERIC_REFERRAL_DB.filter(r=>r.fromRole===role.id));
+    setLastCode(code);
+    setView("success");
+  };
+
+  const STATUS_META={sent:{label:"Sent to Admin",color:"#607D8B",icon:"📤"},reviewing:{label:"Under Admin Review",color:"#4A9DFF",icon:"🔍"},actioned:{label:"Reviewed & Actioned",color:"#00C9A7",icon:"🛡️"}};
+
+  if(view==="success") return (
+    <ReferralReceipt code={lastCode} title="Referral Sent to Admin" subtitle={`STETHOSCO Admin will review this ${form.type.toLowerCase()} referral.`} roleColor="#0066CC" onDone={()=>{setView("list");setForm(blank);}}/>
+  );
+
+  if(view==="form") return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={()=>setView("list")}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>🤝 Refer to Admin</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>From {role.label}</div></div>
+      </div>
+      <div style={{background:"rgba(74,157,255,0.06)",border:"1px solid rgba(74,157,255,0.2)",borderRadius:11,padding:"9px 12px",marginBottom:12,fontSize:9.5,color:"rgba(255,255,255,0.5)",lineHeight:1.5}}>ℹ️ STETHOSCO Admin is the concerned in-charge for every referral. Admin decides whether an incentive applies based on the referral type, and settles it privately — no amount or model is shown in the app.</div>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>REFERRAL TYPE</div>
+          <select value={form.type} onChange={e=>F("type",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}>
+            {GENERIC_REFERRAL_TYPES.map(t=><option key={t}>{t}</option>)}
+          </select></div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>ORGANIZATION / NAME *</div>
+          <input value={form.org} onChange={e=>F("org",e.target.value)} placeholder="Who or what are you referring?" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>DESCRIPTION *</div>
+          <textarea value={form.description} onChange={e=>F("description",e.target.value)} placeholder="Describe the referral in a few lines" rows={3} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",resize:"none"}}/></div>
+        <div style={{background:"rgba(244,160,18,0.06)",border:"1px solid rgba(244,160,18,0.2)",borderRadius:12,padding:12}}>
+          <div style={{color:"#F4A012",fontWeight:700,fontSize:10.5,marginBottom:8}}>CONTACT DETAILS (for Admin follow-up)</div>
+          <input value={form.contactName} onChange={e=>F("contactName",e.target.value)} placeholder="Contact name" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:8}}/>
+          <div style={{display:"flex",gap:9}}>
+            <input value={form.contactPhone} onChange={e=>F("contactPhone",e.target.value)} placeholder="Phone" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+            <input value={form.contactEmail} onChange={e=>F("contactEmail",e.target.value)} placeholder="Email" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+          </div>
+        </div>
+        <MBtn onClick={submit} disabled={!form.org.trim()||!form.description.trim()} style={{width:"100%",background:"linear-gradient(135deg,#0066CC,#0A1628)"}}>Send to STETHOSCO Admin</MBtn>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>🤝 Refer to Admin</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>From {role.label}</div></div>
+      </div>
+      <div style={{background:"rgba(74,157,255,0.06)",border:"1px solid rgba(74,157,255,0.25)",borderRadius:12,padding:"11px 13px",marginBottom:16,fontSize:10,color:"rgba(255,255,255,0.55)",lineHeight:1.6}}>
+        ℹ️ Refer anything — a job opening, a patient case, a business lead, a partnership — directly to STETHOSCO Admin. Admin is the concerned in-charge who decides if an incentive applies based on the referral type, and settles it privately. No incentive details are shown in the app.
+      </div>
+      <MBtn onClick={()=>setView("form")} style={{width:"100%",marginBottom:16,background:"linear-gradient(135deg,#0066CC,#0A1628)"}}>➕ Make a New Referral</MBtn>
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>YOUR REFERRALS</div>
+      {list.length===0&&<Card style={{textAlign:"center",padding:"24px 16px"}}><div style={{fontSize:28,marginBottom:8}}>📭</div><div style={{color:"rgba(255,255,255,0.4)",fontSize:11}}>No referrals sent yet</div></Card>}
+      <div style={{display:"flex",flexDirection:"column",gap:9}}>
+        {list.map(r=>{
+          const meta=STATUS_META[r.status]||STATUS_META.sent;
+          return (
+            <div key={r.id} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:13,padding:12}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:5}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{color:"#fff",fontWeight:700,fontSize:12}}>{r.org}</div>
+                  <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginTop:2}}>{r.type} · Code: <span style={{color:"#4A9DFF",fontWeight:700}}>{r.code||"—"}</span> · {r.date}</div>
+                </div>
+                <div style={{background:`${meta.color}20`,border:`1px solid ${meta.color}50`,borderRadius:7,padding:"3px 8px",color:meta.color,fontSize:8,fontWeight:800,whiteSpace:"nowrap"}}>{meta.icon} {meta.label}</div>
+              </div>
+              <div style={{color:"rgba(255,255,255,0.35)",fontSize:9.5}}>{r.description}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CommissionManagementPanel({onBack}){
+  const [types,setTypes]=useState(Object.keys(PLATFORM_COMMISSION));
+  const [editingType,setEditingType]=useState(null);
+  const [draftPct,setDraftPct]=useState("");
+  const [draftPatientPct,setDraftPatientPct]=useState("");
+  const [reason,setReason]=useState("");
+  const [log,setLog]=useState([...COMMISSION_CHANGE_LOG]);
+  const [toast,setToast]=useState("");
+  const [, forceRefresh]=useState(0);
+
+  const startEdit=(type)=>{
+    setEditingType(type);
+    setDraftPct(String(PLATFORM_COMMISSION[type].pct));
+    setDraftPatientPct(PLATFORM_COMMISSION[type].patientPct!=null?String(PLATFORM_COMMISSION[type].patientPct):"");
+    setReason("");
+  };
+
+  const saveEdit=()=>{
+    const c=PLATFORM_COMMISSION[editingType];
+    const newPct=parseFloat(draftPct);
+    if(isNaN(newPct)||newPct<c.min||newPct>c.max) return;
+    const oldPct=c.pct;
+    c.pct=newPct;
+    let patientNote="";
+    if(c.patientPct!=null){
+      const newPatientPct=parseFloat(draftPatientPct);
+      if(!isNaN(newPatientPct)&&newPatientPct>=0&&newPatientPct<=20){
+        const oldPatientPct=c.patientPct;
+        c.patientPct=newPatientPct;
+        patientNote=` · Patient-side fee ${oldPatientPct}% → ${newPatientPct}%`;
+      }
+    }
+    c.lastUpdated=`Updated ${new Date().toISOString().slice(0,10)} · ${oldPct}% → ${newPct}%${patientNote}${reason.trim()?` · Reason: ${reason.trim()}`:""}`;
+    COMMISSION_CHANGE_LOG.unshift({type:editingType,label:c.label,oldPct,newPct,reason:reason.trim()||"No reason provided",date:"Just now"});
+    setLog([...COMMISSION_CHANGE_LOG]);
+    setEditingType(null);
+    setToast(`✅ ${c.label} updated: ${oldPct}% → ${newPct}%${patientNote}`);
+    forceRefresh(n=>n+1);
+    setTimeout(()=>setToast(""),3000);
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>⚙️ Commission Management</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>Every rate routed through Admin · editable anytime</div></div>
+      </div>
+
+      {toast&&<div style={{background:"rgba(0,201,167,0.12)",border:"1px solid rgba(0,201,167,0.3)",borderRadius:11,padding:"9px 13px",marginBottom:12,color:"#00C9A7",fontSize:11,fontWeight:700,textAlign:"center"}}>{toast}</div>}
+
+      <div style={{background:"rgba(74,157,255,0.06)",border:"1px solid rgba(74,157,255,0.25)",borderRadius:12,padding:"11px 13px",marginBottom:16,fontSize:10,color:"rgba(255,255,255,0.55)",lineHeight:1.6}}>
+        ℹ️ Commission rates for every feature are centrally controlled here — changed over time or on a case-by-case basis, within safe min/max bounds. Every change is logged with a reason and takes effect immediately across the app.
+      </div>
+
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>ALL COMMISSION MODELS</div>
+      <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:20}}>
+        {types.map(type=>{
+          const c=PLATFORM_COMMISSION[type];
+          const editing=editingType===type;
+          return (
+            <div key={type} style={{background:"rgba(255,255,255,0.03)",border:`1px solid ${editing?"rgba(244,160,18,0.4)":"rgba(255,255,255,0.08)"}`,borderRadius:13,padding:13}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{color:"#fff",fontWeight:700,fontSize:12}}>{c.label}</div>
+                  <div style={{color:"rgba(255,255,255,0.35)",fontSize:9,marginTop:2}}>{c.note}</div>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0,marginLeft:10}}>
+                  <div style={{color:"#F4A012",fontWeight:900,fontSize:18}}>{c.pct}%</div>
+                  {c.patientPct!=null&&<div style={{color:"rgba(255,255,255,0.35)",fontSize:8}}>+{c.patientPct}% patient-side</div>}
+                </div>
+              </div>
+              <div style={{color:"rgba(255,255,255,0.3)",fontSize:8.5,marginBottom:editing?10:0}}>🕒 {c.lastUpdated} · Allowed range {c.min}%–{c.max}%</div>
+              {editing?(
+                <div style={{background:"rgba(244,160,18,0.06)",borderRadius:10,padding:11,marginTop:4}}>
+                  <div style={{color:"rgba(255,255,255,0.4)",fontSize:8.5,marginBottom:4,fontWeight:700}}>{c.patientPct!=null?"DOCTOR-SIDE DEDUCTION":"COMMISSION RATE"}</div>
+                  <div style={{display:"flex",gap:9,marginBottom:9}}>
+                    <input type="number" step="0.01" value={draftPct} onChange={e=>setDraftPct(e.target.value)} style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:9,color:"#fff",fontSize:13,fontWeight:700,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+                    <div style={{color:"rgba(255,255,255,0.4)",fontSize:11,alignSelf:"center"}}>%</div>
+                  </div>
+                  {c.patientPct!=null&&(
+                    <>
+                      <div style={{color:"rgba(255,255,255,0.4)",fontSize:8.5,marginBottom:4,fontWeight:700}}>PATIENT-SIDE SURCHARGE</div>
+                      <div style={{display:"flex",gap:9,marginBottom:9}}>
+                        <input type="number" step="0.01" value={draftPatientPct} onChange={e=>setDraftPatientPct(e.target.value)} style={{flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:9,color:"#fff",fontSize:13,fontWeight:700,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+                        <div style={{color:"rgba(255,255,255,0.4)",fontSize:11,alignSelf:"center"}}>%</div>
+                      </div>
+                    </>
+                  )}
+                  <input value={reason} onChange={e=>setReason(e.target.value)} placeholder="Reason for change (e.g. seasonal adjustment, specific case)" style={{width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:9,color:"#fff",fontSize:10.5,padding:"8px 11px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:9}}/>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={()=>setEditingType(null)} style={{flex:1,background:"rgba(255,255,255,0.08)",border:"none",borderRadius:8,padding:"9px",color:"#fff",fontSize:10.5,fontWeight:700,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>Cancel</button>
+                    <button onClick={saveEdit} style={{flex:1,background:"linear-gradient(135deg,#F4A012,#B8860B)",border:"none",borderRadius:8,padding:"9px",color:"#0A1628",fontSize:10.5,fontWeight:800,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>Save Rate</button>
+                  </div>
+                </div>
+              ):(
+                <button onClick={()=>startEdit(type)} style={{marginTop:8,background:"rgba(244,160,18,0.1)",border:"1px solid rgba(244,160,18,0.3)",borderRadius:8,padding:"7px 13px",color:"#F4A012",fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>✏️ Edit Rate</button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>CHANGE HISTORY</div>
+      {log.length===0&&<Card style={{textAlign:"center",padding:"20px 14px"}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:11}}>No changes made yet — rates are at their initial values</div></Card>}
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {log.map((entry,i)=>(
+          <div key={i} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:11,padding:"10px 12px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{color:"#fff",fontSize:11,fontWeight:700}}>{entry.label}</div>
+              <div style={{color:"rgba(255,255,255,0.5)",fontSize:10.5}}>{entry.oldPct}% → <span style={{color:"#F4A012",fontWeight:700}}>{entry.newPct}%</span></div>
+            </div>
+            <div style={{color:"rgba(255,255,255,0.35)",fontSize:9,marginTop:3}}>{entry.reason} · {entry.date}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Boost Pricing Management — admin-editable pricing & feature lists ──
+// for every Boost tier across all 11 verticals. Mutates BOOST_VERTICALS in
+// place, the same shared object BoostCenter reads from live, so a price or
+// feature change here takes effect immediately for every user browsing
+// Boost plans — no separate sync step needed.
+const BOOST_PRICING_CHANGE_LOG=[];
+function BoostPricingManagementPanel({onBack}){
+  const [activeVertical,setActiveVertical]=useState("hospital");
+  const [editingTier,setEditingTier]=useState(null);
+  const [draftPrice,setDraftPrice]=useState("");
+  const [draftFeatures,setDraftFeatures]=useState("");
+  const [reason,setReason]=useState("");
+  const [log,setLog]=useState([...BOOST_PRICING_CHANGE_LOG]);
+  const [toast,setToast]=useState("");
+  const [, forceRefresh]=useState(0);
+
+  const v=BOOST_VERTICALS[activeVertical];
+
+  const startEdit=(plan)=>{
+    setEditingTier(plan.id);
+    setDraftPrice(String(plan.price));
+    setDraftFeatures(plan.features.join("\n"));
+    setReason("");
+  };
+
+  const saveEdit=(plan)=>{
+    const newPrice=parseInt(draftPrice,10);
+    if(isNaN(newPrice)||newPrice<0) return;
+    const newFeatures=draftFeatures.split("\n").map(f=>f.trim()).filter(Boolean);
+    if(newFeatures.length===0) return;
+    const oldPrice=plan.price;
+    plan.price=newPrice;
+    plan.features=newFeatures;
+    BOOST_PRICING_CHANGE_LOG.unshift({vertical:v.label,tier:plan.name,oldPrice,newPrice,reason:reason.trim()||"No reason provided",date:new Date().toISOString().slice(0,10)});
+    setLog([...BOOST_PRICING_CHANGE_LOG]);
+    setEditingTier(null);
+    setToast(`✅ ${v.label} · ${plan.name} updated: ${inr(oldPrice)} → ${inr(newPrice)}`);
+    forceRefresh(n=>n+1);
+    setTimeout(()=>setToast(""),3000);
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>🚀 Boost Pricing Management</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>Edit price & services for every vertical, anytime</div></div>
+      </div>
+
+      {toast&&<div style={{background:"rgba(0,201,167,0.12)",border:"1px solid rgba(0,201,167,0.3)",borderRadius:11,padding:"9px 13px",marginBottom:12,color:"#00C9A7",fontSize:11,fontWeight:700,textAlign:"center"}}>{toast}</div>}
+
+      <div style={{background:"rgba(74,157,255,0.06)",border:"1px solid rgba(74,157,255,0.25)",borderRadius:12,padding:"11px 13px",marginBottom:14,fontSize:10,color:"rgba(255,255,255,0.55)",lineHeight:1.6}}>
+        ℹ️ Boost pricing and included services are set here, by type of service — changed by Admin over time as needed. Updates apply immediately across the app.
+      </div>
+
+      <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:9,marginBottom:14}}>
+        {Object.entries(BOOST_VERTICALS).map(([k,vv])=>(
+          <div key={k} onClick={()=>{setActiveVertical(k);setEditingTier(null);}} style={{flexShrink:0,display:"flex",alignItems:"center",gap:5,padding:"7px 11px",borderRadius:50,cursor:"pointer",background:activeVertical===k?`${vv.color}22`:"rgba(255,255,255,0.04)",border:`1px solid ${activeVertical===k?vv.color+"55":"rgba(255,255,255,0.08)"}`}}>
+            <span style={{fontSize:12}}>{vv.icon}</span><span style={{fontSize:9.5,fontWeight:700,color:activeVertical===k?vv.color:"rgba(255,255,255,0.4)",whiteSpace:"nowrap"}}>{vv.short}</span>
+          </div>
+        ))}
+      </div>
+
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>{v.label.toUpperCase()} — PLAN TIERS</div>
+      <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:20}}>
+        {v.plans.map(plan=>{
+          const editing=editingTier===plan.id;
+          return (
+            <div key={plan.id} style={{background:"rgba(255,255,255,0.03)",border:`1px solid ${editing?v.color+"60":"rgba(255,255,255,0.08)"}`,borderRadius:14,padding:14}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div style={{color:"#fff",fontWeight:800,fontSize:13}}>{plan.name}{plan.badge&&<span style={{marginLeft:7,fontSize:8,color:v.color,fontWeight:800}}>★ {plan.badge}</span>}</div>
+                <div style={{color:v.color,fontWeight:900,fontSize:16}}>{inr(plan.price)}<span style={{fontSize:9,color:"rgba(255,255,255,0.4)",fontWeight:600}}>/mo</span></div>
+              </div>
+              {!editing&&plan.features.map((f,i)=><div key={i} style={{display:"flex",gap:7,fontSize:10.5,color:"rgba(255,255,255,0.55)",marginBottom:4}}><span style={{color:v.color,flexShrink:0}}>✓</span>{f}</div>)}
+              {editing?(
+                <div style={{marginTop:10}}>
+                  <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>PRICE (₹/month)</div>
+                  <input type="number" value={draftPrice} onChange={e=>setDraftPrice(e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:9,color:"#fff",fontSize:13,fontWeight:700,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:10}}/>
+                  <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>SERVICES INCLUDED (one per line)</div>
+                  <textarea value={draftFeatures} onChange={e=>setDraftFeatures(e.target.value)} rows={5} style={{width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:9,color:"#fff",fontSize:10.5,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",resize:"none",marginBottom:10}}/>
+                  <input value={reason} onChange={e=>setReason(e.target.value)} placeholder="Reason for change (optional)" style={{width:"100%",background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.15)",borderRadius:9,color:"#fff",fontSize:10.5,padding:"8px 11px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:10}}/>
+                  <div style={{display:"flex",gap:8}}>
+                    <button onClick={()=>setEditingTier(null)} style={{flex:1,background:"rgba(255,255,255,0.08)",border:"none",borderRadius:8,padding:"9px",color:"#fff",fontSize:10.5,fontWeight:700,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>Cancel</button>
+                    <button onClick={()=>saveEdit(plan)} style={{flex:1,background:`linear-gradient(135deg,${v.color},#0A1628)`,border:"none",borderRadius:8,padding:"9px",color:"#fff",fontSize:10.5,fontWeight:800,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>Save Changes</button>
+                  </div>
+                </div>
+              ):(
+                <button onClick={()=>startEdit(plan)} style={{marginTop:8,background:`${v.color}18`,border:`1px solid ${v.color}40`,borderRadius:8,padding:"7px 13px",color:v.color,fontSize:10,fontWeight:700,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>✏️ Edit Price & Services</button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>CHANGE HISTORY</div>
+      {log.length===0&&<Card style={{textAlign:"center",padding:"20px 14px"}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:11}}>No pricing changes made yet</div></Card>}
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        {log.map((entry,i)=>(
+          <div key={i} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:11,padding:"10px 12px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{color:"#fff",fontSize:11,fontWeight:700}}>{entry.vertical} · {entry.tier}</div>
+              <div style={{color:"rgba(255,255,255,0.5)",fontSize:10.5}}>{inr(entry.oldPrice)} → <span style={{color:"#F4A012",fontWeight:700}}>{inr(entry.newPrice)}</span></div>
+            </div>
+            <div style={{color:"rgba(255,255,255,0.35)",fontSize:9,marginTop:3}}>{entry.reason} · {entry.date}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Admin Payment Receipts — every payment made through the STETHOSCO ──
+// Payment Gateway, across every feature, in one place. Admin confirms
+// receipt of each payment here; the same processed status is what the
+// user sees on their own receipt in Wallet & Payments.
+function AdminPaymentReceipts({onBack}){
+  const [filter,setFilter]=useState("all");
+  const [, forceRefresh]=useState(0);
+  const payments=WALLET_TRANSACTIONS.filter(t=>t.amount<0);
+  const filtered=filter==="all"?payments:payments.filter(t=>t.portal===filter);
+  const portals=[...new Set(payments.map(t=>t.portal))];
+  const totalAmount=payments.reduce((s,t)=>s+Math.abs(t.amount),0);
+  const unprocessedCount=payments.filter(t=>!t.processed).length;
+
+  const markProcessed=(id)=>{
+    const idx=WALLET_TRANSACTIONS.findIndex(t=>t.id===id);
+    if(idx>=0) WALLET_TRANSACTIONS[idx].processed=true;
+    forceRefresh(n=>n+1);
+  };
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>🧾 Payment Receipts</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>Every payment, across every feature, in one place</div></div>
+      </div>
+
+      <div style={{background:"linear-gradient(135deg,#0A2A24,#00594C)",borderRadius:16,padding:16,marginBottom:14}}>
+        <div style={{color:"rgba(255,255,255,0.6)",fontSize:10}}>Total Payments Received</div>
+        <div style={{color:"#fff",fontWeight:900,fontSize:26,marginTop:2}}>₹{totalAmount.toLocaleString("en-IN")}</div>
+        <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,marginTop:4}}>{payments.length} receipts · {unprocessedCount} awaiting processing</div>
+      </div>
+
+      <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:9,marginBottom:14}}>
+        {["all",...portals].map(p=>(
+          <div key={p} onClick={()=>setFilter(p)} style={{flexShrink:0,padding:"7px 13px",borderRadius:50,cursor:"pointer",fontSize:10,fontWeight:700,whiteSpace:"nowrap",background:filter===p?"rgba(0,201,167,0.2)":"rgba(255,255,255,0.05)",border:`1px solid ${filter===p?"rgba(0,201,167,0.4)":"rgba(255,255,255,0.1)"}`,color:filter===p?"#00C9A7":"rgba(255,255,255,0.4)"}}>{p==="all"?"All Features":p}</div>
+        ))}
+      </div>
+
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>RECEIPTS ({filtered.length})</div>
+      {filtered.length===0&&<Card style={{textAlign:"center",padding:"24px 16px"}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:11}}>No receipts in this category yet</div></Card>}
+      <div style={{display:"flex",flexDirection:"column",gap:9}}>
+        {filtered.map(t=>(
+          <div key={t.id} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:13,padding:12}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:7}}>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span>{t.icon}</span>
+                  <span style={{color:"#fff",fontWeight:700,fontSize:12}}>{t.label}</span>
+                </div>
+                <div style={{color:"rgba(255,255,255,0.4)",fontSize:10,marginTop:2}}>{t.portal} · Receipt: {t.receiptCode||"—"} · {t.date}</div>
+              </div>
+              <div style={{color:"#F4A012",fontWeight:900,fontSize:14,flexShrink:0}}>₹{Math.abs(t.amount).toLocaleString("en-IN")}</div>
+            </div>
+            {t.processed?(
+              <div style={{background:"rgba(0,201,167,0.08)",borderRadius:8,padding:"6px 10px",color:"#00C9A7",fontSize:10,fontWeight:700}}>✅ Processed — receipt shared with user</div>
+            ):(
+              <button onClick={()=>markProcessed(t.id)} style={{width:"100%",background:"linear-gradient(135deg,#F4A012,#B8860B)",border:"none",borderRadius:8,padding:"9px",color:"#0A1628",fontSize:10.5,fontWeight:800,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>Mark as Processed & Share Receipt</button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
+// type across the platform (Job Opening, Patient Case, Generic, Invite).
+// Groups referrals received today by type, tracks status updates over time,
+// and is the only place incentive settlement is recorded — since Admin is
+// the concerned in-charge, this tracking never surfaces to the referring
+// user's own screens.
+const ADMIN_REFERRAL_SETTLEMENTS=[];
+function AdminReferralCenter({onBack}){
+  const [typeFilter,setTypeFilter]=useState("all");
+  const [selected,setSelected]=useState(null);
+  const [settleNote,setSettleNote]=useState("");
+  const [settleAmt,setSettleAmt]=useState("");
+  const [, forceRefresh]=useState(0);
+
+  const isToday=(dateStr)=>dateStr==="Just now"||dateStr.includes("2026")===false;
+  // Normalize every referral source into one common shape
+  const allReferrals=[
+    ...JOB_REFERRAL_TRACKING_DB.map(j=>({id:j.id,kind:"Job Opening",icon:"📋",code:j.code||"—",subject:j.role,org:j.org,fromLabel:j.inchargeName||"—",date:j.date,status:j.status,receivedToday:j.date==="Just now"})),
+    ...PATIENT_REFERRAL_DB.map(p=>({id:p.id,kind:"Patient Case",icon:"🩺",code:p.code,subject:`${p.patientInitials} · ${p.complaint}`,org:p.hospital,fromLabel:p.hospitalContact?.name||"—",date:p.date,status:p.status,receivedToday:p.date==="Just now"})),
+    ...GENERIC_REFERRAL_DB.map(g=>({id:g.id,kind:"Generic",icon:"🤝",code:g.code||"—",subject:g.org,org:g.type,fromLabel:g.fromLabel,date:g.date,status:g.status,receivedToday:g.date==="Just now"})),
+    ...REFERRAL_TRACKING_DB.map(r=>({id:r.id,kind:"Invite",icon:"🔗",code:"—",subject:r.name,org:r.via,fromLabel:"—",date:r.date,status:r.status,receivedToday:false})),
+  ];
+
+  const kinds=["Job Opening","Patient Case","Generic","Invite"];
+  const todayCountByKind=k=>allReferrals.filter(r=>r.kind===k&&r.receivedToday).length;
+  const totalToday=allReferrals.filter(r=>r.receivedToday).length;
+  const filtered=typeFilter==="all"?allReferrals:allReferrals.filter(r=>r.kind===typeFilter);
+
+  const settleIncentive=()=>{
+    if(!selected) return;
+    ADMIN_REFERRAL_SETTLEMENTS.unshift({id:selected.id,kind:selected.kind,code:selected.code,amount:settleAmt.trim()||"Non-monetary / no incentive",note:settleNote.trim()||"No note added",date:new Date().toISOString().slice(0,10)});
+    setSettleAmt("");
+    setSettleNote("");
+    setSelected(null);
+    forceRefresh(n=>n+1);
+  };
+
+  if(selected){
+    const priorSettlement=ADMIN_REFERRAL_SETTLEMENTS.find(s=>s.id===selected.id);
+    return (
+      <div>
+        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+          <BackBtn onClick={()=>setSelected(null)}/>
+          <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>{selected.icon} {selected.kind} Referral</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>Code: {selected.code}</div></div>
+        </div>
+        <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:13,padding:13,marginBottom:14}}>
+          <div style={{color:"#fff",fontWeight:700,fontSize:13,marginBottom:4}}>{selected.subject}</div>
+          <div style={{color:"rgba(255,255,255,0.45)",fontSize:11,marginBottom:2}}>{selected.org}</div>
+          <div style={{color:"rgba(255,255,255,0.3)",fontSize:9.5}}>From: {selected.fromLabel} · Received: {selected.date}</div>
+        </div>
+        {priorSettlement?(
+          <div style={{background:"rgba(0,201,167,0.08)",border:"1px solid rgba(0,201,167,0.3)",borderRadius:13,padding:13,marginBottom:14}}>
+            <div style={{color:"#00C9A7",fontWeight:800,fontSize:11,marginBottom:6}}>✅ Incentive Settled (Admin-Only Record)</div>
+            <div style={{color:"#fff",fontSize:12,fontWeight:700}}>{priorSettlement.amount}</div>
+            <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginTop:4}}>{priorSettlement.note} · Settled {priorSettlement.date}</div>
+          </div>
+        ):(
+          <div style={{background:"rgba(244,160,18,0.06)",border:"1px solid rgba(244,160,18,0.25)",borderRadius:13,padding:13}}>
+            <div style={{color:"#F4A012",fontWeight:800,fontSize:11,marginBottom:8}}>Settle Incentive (visible only to Admin)</div>
+            <input value={settleAmt} onChange={e=>setSettleAmt(e.target.value)} placeholder="Amount or 'No incentive applicable'" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:8}}/>
+            <input value={settleNote} onChange={e=>setSettleNote(e.target.value)} placeholder="Internal note (reason, method, etc.)" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:10}}/>
+            <MBtn onClick={settleIncentive} style={{width:"100%",background:"linear-gradient(135deg,#F4A012,#B8860B)"}}>Mark as Settled</MBtn>
+            <div style={{color:"rgba(255,255,255,0.3)",fontSize:8.5,marginTop:8,lineHeight:1.5}}>This record is visible only within the Admin Referral Center — never shown on the referring party own app screens.</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>🛡️ Referral Command Center</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>The one dashboard for every referral, every type</div></div>
+      </div>
+
+      <div style={{background:"linear-gradient(135deg,#0A2A24,#00594C)",borderRadius:16,padding:16,marginBottom:14}}>
+        <div style={{color:"rgba(255,255,255,0.6)",fontSize:10}}>Referrals Received Today</div>
+        <div style={{color:"#fff",fontWeight:900,fontSize:26,marginTop:2}}>{totalToday}</div>
+        <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
+          {kinds.map(k=>(
+            <div key={k} style={{background:"rgba(255,255,255,0.12)",borderRadius:9,padding:"5px 10px"}}>
+              <span style={{color:"#fff",fontWeight:800,fontSize:11}}>{todayCountByKind(k)}</span>
+              <span style={{color:"rgba(255,255,255,0.55)",fontSize:9,marginLeft:4}}>{k}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:9,marginBottom:14}}>
+        {["all",...kinds].map(k=>(
+          <div key={k} onClick={()=>setTypeFilter(k)} style={{flexShrink:0,padding:"7px 13px",borderRadius:50,cursor:"pointer",fontSize:10,fontWeight:700,whiteSpace:"nowrap",background:typeFilter===k?"rgba(0,201,167,0.2)":"rgba(255,255,255,0.05)",border:`1px solid ${typeFilter===k?"rgba(0,201,167,0.4)":"rgba(255,255,255,0.1)"}`,color:typeFilter===k?"#00C9A7":"rgba(255,255,255,0.4)"}}>{k==="all"?"All Types":k}</div>
+        ))}
+      </div>
+
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>ALL REFERRALS ({filtered.length})</div>
+      {filtered.length===0&&<Card style={{textAlign:"center",padding:"24px 16px"}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:11}}>No referrals in this category yet</div></Card>}
+      <div style={{display:"flex",flexDirection:"column",gap:9}}>
+        {filtered.map(r=>{
+          const settled=ADMIN_REFERRAL_SETTLEMENTS.some(s=>s.id===r.id);
+          return (
+            <div key={`${r.kind}-${r.id}`} onClick={()=>setSelected(r)} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:13,padding:12,cursor:"pointer"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6}}>
+                    <span>{r.icon}</span>
+                    <span style={{color:"#fff",fontWeight:700,fontSize:12}}>{r.subject}</span>
+                  </div>
+                  <div style={{color:"rgba(255,255,255,0.4)",fontSize:10,marginTop:2}}>{r.org}</div>
+                  <div style={{color:"rgba(255,255,255,0.3)",fontSize:9,marginTop:2}}>{r.kind} · Code: {r.code} · {r.date}</div>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <div style={{color:"rgba(255,255,255,0.5)",fontSize:9,fontWeight:700,textTransform:"capitalize"}}>{r.status.replace(/_/g," ")}</div>
+                  {settled&&<div style={{color:"#00C9A7",fontSize:8.5,fontWeight:800,marginTop:3}}>✅ Settled</div>}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -11297,13 +12967,16 @@ function TermsAndConditionsBlock({checked, onChange, stakeholderType="stakeholde
         <span style={{color:"rgba(255,255,255,0.3)",fontSize:14,transform:expanded?"rotate(180deg)":"none",transition:"transform .2s"}}>⌄</span>
       </div>
       {expanded&&(
-        <div style={{color:"rgba(255,255,255,0.5)",fontSize:10,lineHeight:1.7,marginTop:9,maxHeight:130,overflowY:"auto",paddingRight:4}}>
+        <div style={{color:"rgba(255,255,255,0.5)",fontSize:10,lineHeight:1.7,marginTop:9,maxHeight:170,overflowY:"auto",paddingRight:4}}>
           1. As a {stakeholderType} on STETHOSCO, you confirm all information and credentials provided are accurate and that you hold valid, current licensing/registration required by law for your services.<br/>
           2. Your listing/profile is subject to admin review, verification, and may be approved, rejected, or blocked based on scrutiny at STETHOSCO's discretion.<br/>
           {c&&<>3. STETHOSCO charges a platform commission of <b style={{color:"#F4A012"}}>{c.pct}%</b> on each {c.label.toLowerCase()} conducted through the platform, deducted at settlement.<br/></>}
           {c?"4":"3"}. You agree to honour bookings/orders/postings made in good faith by users, and to maintain accurate pricing, availability, and contact information at all times.<br/>
-          {c?"5":"4"}. STETHOSCO reserves the right to suspend or remove any account found in violation of these terms, applicable law, or platform policy.<br/>
-          {c?"6":"5"}. This agreement is governed by the laws of India and subject to periodic revision, with continued use constituting acceptance of updated terms.
+          {c?"5":"4"}. <b style={{color:"rgba(255,255,255,0.65)"}}>Data & Privacy:</b> You consent to STETHOSCO collecting, storing, and processing your business and transaction data to operate the platform, generate analytics, and enable payouts, in line with applicable Indian data-protection law.<br/>
+          {c?"6":"5"}. <b style={{color:"rgba(255,255,255,0.65)"}}>Refunds, Cancellations & Disputes:</b> Refunds and cancellations follow the policy applicable to your service category; STETHOSCO may mediate disputes between you and end-users but is not liable for the outcome of services independently rendered by you.<br/>
+          {c?"7":"6"}. <b style={{color:"rgba(255,255,255,0.65)"}}>Settlement:</b> Payouts (net of commission) are processed on a periodic cycle to your registered bank account, subject to successful verification and no open disputes.<br/>
+          {c?"8":"7"}. STETHOSCO reserves the right to suspend or remove any account found in violation of these terms, applicable law, or platform policy.<br/>
+          {c?"9":"8"}. This agreement is governed by the laws of India, with disputes subject to the jurisdiction of the courts where STETHOSCO is registered, and is subject to periodic revision, with continued use constituting acceptance of updated terms.
         </div>
       )}
       <div onClick={()=>onChange(!checked)} style={{display:"flex",gap:10,alignItems:"flex-start",cursor:"pointer",marginTop:10}}>
@@ -11366,6 +13039,287 @@ function JobPostingAgreement({checked, onChange}){
   );
 }
 
+const StableKeyedInput=({label,k,ph,type="text",f,S})=>(<div style={{marginBottom:9}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>{label}</div><input type={type} value={f[k]} onChange={e=>S(k,e.target.value)} placeholder={ph} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",fontFamily:"Outfit,sans-serif",boxSizing:"border-box"}}/></div>);
+// ── Hospital Manage Doctors — onboard doctors with department, ──
+// specialization, and consultation fee, feeding the same shared roster
+// patients see and book from via NearbyHospitalSearch → HospitalDetailCard.
+const DEMO_HOSPITAL_ID="nh1"; // Apollo Hospitals — the representative hospital for this portal's demo session
+function HospitalManageDoctors({onBack}){
+  const [list,setList]=useState(HOSPITAL_ONBOARDED_DOCTORS.filter(d=>d.hospitalId===DEMO_HOSPITAL_ID));
+  const [adding,setAdding]=useState(false);
+  const [editingId,setEditingId]=useState(null);
+  const blank={name:"",dept:"",specialization:"",fee:"",exp:"",credentials:"",mode:"both"};
+  const [form,setForm]=useState(blank);
+
+  const refresh=()=>setList(HOSPITAL_ONBOARDED_DOCTORS.filter(d=>d.hospitalId===DEMO_HOSPITAL_ID));
+
+  const saveDoctor=()=>{
+    if(!form.name.trim()||!form.dept.trim()||!form.fee) return;
+    if(editingId){
+      const idx=HOSPITAL_ONBOARDED_DOCTORS.findIndex(d=>d.id===editingId);
+      if(idx>=0) HOSPITAL_ONBOARDED_DOCTORS[idx]={...HOSPITAL_ONBOARDED_DOCTORS[idx],name:form.name,dept:form.dept,specialization:form.specialization||form.dept,fee:parseInt(form.fee,10)||0,exp:form.exp||"—",credentials:form.credentials,mode:form.mode};
+    }else{
+      HOSPITAL_ONBOARDED_DOCTORS.push({id:"hd"+Date.now(),hospitalId:DEMO_HOSPITAL_ID,name:form.name,dept:form.dept,specialization:form.specialization||form.dept,fee:parseInt(form.fee,10)||0,exp:form.exp||"—",credentials:form.credentials,mode:form.mode,slots:["10:00 AM","2:00 PM"]});
+    }
+    refresh();
+    setForm(blank);
+    setAdding(false);
+    setEditingId(null);
+  };
+
+  const startEdit=(d)=>{
+    setForm({name:d.name,dept:d.dept,specialization:d.specialization,fee:String(d.fee),exp:d.exp,credentials:d.credentials||"",mode:d.mode||"both"});
+    setEditingId(d.id);
+    setAdding(true);
+  };
+
+  const removeDoctor=(id)=>{
+    const idx=HOSPITAL_ONBOARDED_DOCTORS.findIndex(d=>d.id===id);
+    if(idx>=0) HOSPITAL_ONBOARDED_DOCTORS.splice(idx,1);
+    refresh();
+  };
+
+  const MODE_OPTIONS=[{id:"online",label:"Online Only",icon:"📹"},{id:"offline",label:"Offline Only",icon:"🏥"},{id:"both",label:"Online & Offline",icon:"🔀"}];
+
+  if(adding) return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={()=>{setAdding(false);setEditingId(null);setForm(blank);}}/>
+        <div style={{color:"#fff",fontWeight:800,fontSize:14}}>{editingId?"✏️ Update Doctor":"➕ Onboard a Doctor"}</div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>DOCTOR NAME *</div>
+          <input value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Dr. Full Name" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>DEPARTMENT *</div>
+          <input value={form.dept} onChange={e=>setForm(f=>({...f,dept:e.target.value}))} placeholder="e.g. Cardiology" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>SPECIALIZATION</div>
+          <input value={form.specialization} onChange={e=>setForm(f=>({...f,specialization:e.target.value}))} placeholder="e.g. Interventional Cardiologist" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>CREDENTIALS / QUALIFICATIONS</div>
+          <input value={form.credentials} onChange={e=>setForm(f=>({...f,credentials:e.target.value}))} placeholder="e.g. MD, DM Cardiology, NMC Reg. No." style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+        <div style={{display:"flex",gap:9}}>
+          <div style={{flex:1}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>CONSULTATION FEE (₹) *</div>
+            <input type="number" value={form.fee} onChange={e=>setForm(f=>({...f,fee:e.target.value}))} placeholder="e.g. 1000" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+          <div style={{flex:1}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>EXPERIENCE</div>
+            <input value={form.exp} onChange={e=>setForm(f=>({...f,exp:e.target.value}))} placeholder="e.g. 15 Yrs" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"10px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+        </div>
+        <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:6,fontWeight:700}}>APPOINTMENT MODE</div>
+          <div style={{display:"flex",gap:7}}>
+            {MODE_OPTIONS.map(m=>(
+              <div key={m.id} onClick={()=>setForm(f=>({...f,mode:m.id}))} style={{flex:1,textAlign:"center",padding:"9px 5px",borderRadius:9,cursor:"pointer",background:form.mode===m.id?"rgba(94,53,177,0.2)":"rgba(255,255,255,0.04)",border:`1px solid ${form.mode===m.id?"rgba(94,53,177,0.4)":"rgba(255,255,255,0.1)"}`}}>
+                <div style={{fontSize:15}}>{m.icon}</div>
+                <div style={{color:form.mode===m.id?"#B39DDB":"rgba(255,255,255,0.4)",fontSize:8.5,fontWeight:700,marginTop:2}}>{m.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{background:"rgba(244,160,18,0.06)",border:"1px solid rgba(244,160,18,0.2)",borderRadius:11,padding:"9px 12px",fontSize:9.5,color:"rgba(255,255,255,0.45)",lineHeight:1.6}}>ℹ️ This consultation fee is what patients see when booking OPD — the standard platform fee is added automatically at checkout, on top of this amount.</div>
+        <MBtn onClick={saveDoctor} disabled={!form.name.trim()||!form.dept.trim()||!form.fee} style={{width:"100%",background:"linear-gradient(135deg,#5E35B1,#3949AB)"}}>{editingId?"💾 Update Doctor":"Onboard Doctor"}</MBtn>
+      </div>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div style={{color:"#fff",fontWeight:800,fontSize:14}}>👨‍⚕️ Manage Onboarded Doctors</div>
+      </div>
+      <MBtn onClick={()=>{setForm(blank);setEditingId(null);setAdding(true);}} style={{width:"100%",marginBottom:16,background:"linear-gradient(135deg,#5E35B1,#3949AB)"}}>➕ Onboard a New Doctor</MBtn>
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>YOUR DOCTORS ({list.length})</div>
+      {list.length===0&&<Card style={{textAlign:"center",padding:"24px 16px"}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:11}}>No doctors onboarded yet</div></Card>}
+      <div style={{display:"flex",flexDirection:"column",gap:9}}>
+        {list.map(d=>(
+          <div key={d.id} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:13,padding:12}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+              <div style={{width:36,height:36,borderRadius:10,background:"rgba(94,53,177,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>👨‍⚕️</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{color:"#fff",fontWeight:700,fontSize:12}}>{d.name}</div>
+                <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5}}>{d.specialization} · {d.dept} · {inr(d.fee)}</div>
+                {d.credentials&&<div style={{color:"rgba(255,255,255,0.3)",fontSize:8.5,marginTop:1}}>{d.credentials}</div>}
+              </div>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{background:"rgba(255,255,255,0.05)",borderRadius:6,padding:"3px 8px",color:"rgba(255,255,255,0.45)",fontSize:8.5,fontWeight:700}}>{MODE_OPTIONS.find(m=>m.id===(d.mode||"both"))?.icon} {MODE_OPTIONS.find(m=>m.id===(d.mode||"both"))?.label}</span>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>startEdit(d)} style={{background:"rgba(74,157,255,0.12)",border:"1px solid rgba(74,157,255,0.25)",borderRadius:8,padding:"6px 11px",color:"#4A9DFF",fontSize:9.5,fontWeight:700,cursor:"pointer"}}>✏️ Edit</button>
+                <button onClick={()=>removeDoctor(d.id)} style={{background:"rgba(255,71,87,0.1)",border:"1px solid rgba(255,71,87,0.25)",borderRadius:8,padding:"6px 11px",color:"#FF6B81",fontSize:9.5,fontWeight:700,cursor:"pointer"}}>Remove</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Hospital Profile Manager — the single editable place for everything ──
+// a hospital lists beyond initial registration: facilities, treatments &
+// packages, empanelled insurers, its own patient-referral bonus program,
+// emergency contacts, and ambulance fleet details.
+const HOSP_PROFILE_SECTIONS=["credentials","facilities","treatments","insurance","referralBonus","emergency","ambulance"];
+function HospitalProfileManager({onBack}){
+  const [activeSection,setActiveSection]=useState("credentials");
+  const [saved,setSaved]=useState(false);
+  const showSaved=()=>{setSaved(true);setTimeout(()=>setSaved(false),2000);};
+
+  const [credentials,setCredentials]=useState({name:"Apollo Hospitals",regNo:"HOSP/TS/2019/00427",address:"Jubilee Hills, Hyderabad – 500033",beds:"550",licenseExpiry:"2028-03-31",adminName:"Dr. Suresh Mehta"});
+  const CF=(k,v)=>setCredentials(c=>({...c,[k]:v}));
+
+  const [facilities,setFacilities]=useState(["ICU","NICU","Cath Lab","Dialysis Unit","Blood Bank","24×7 Pharmacy","Ambulance Bay","Trauma Centre"]);
+  const [facInput,setFacInput]=useState("");
+  const addFacility=()=>{if(facInput.trim()){setFacilities(f=>[...f,facInput.trim()]);setFacInput("");showSaved();}};
+  const removeFacility=(f)=>setFacilities(list=>list.filter(x=>x!==f));
+
+  const [treatments,setTreatments]=useState([{name:"Cardiac Bypass Surgery",price:"₹2,50,000 – ₹4,50,000"},{name:"Total Knee Replacement",price:"₹1,80,000 – ₹2,80,000"},{name:"Dialysis (per session)",price:"₹1,500 – ₹2,500"}]);
+  const [tForm,setTForm]=useState({name:"",price:""});
+  const addTreatment=()=>{if(tForm.name.trim()&&tForm.price.trim()){setTreatments(t=>[...t,{...tForm}]);setTForm({name:"",price:""});showSaved();}};
+  const removeTreatment=(i)=>setTreatments(t=>t.filter((_,idx)=>idx!==i));
+
+  const [insurers,setInsurers]=useState(["Star Health","HDFC ERGO","ICICI Lombard","Care Health Insurance","Ayushman Bharat (PMJAY)"]);
+  const [insInput,setInsInput]=useState("");
+  const addInsurer=()=>{if(insInput.trim()){setInsurers(l=>[...l,insInput.trim()]);setInsInput("");showSaved();}};
+  const removeInsurer=(i)=>setInsurers(list=>list.filter(x=>x!==i));
+
+  const [referralBonusDesc,setReferralBonusDesc]=useState("Referring doctors and clinics receive a coordination acknowledgment for verified patient referrals leading to admission. Contact our patient relations desk for current program terms.");
+
+  const [emergency,setEmergency]=useState({emergencyLine:"+91 40 6789 0000",traumaDesk:"+91 40 6789 0001",bloodBank:"+91 40 6789 0002"});
+
+  const [ambulances,setAmbulances]=useState([{type:"ALS (Advanced Life Support)",count:"3",equipped:"Ventilator, Defibrillator, Cardiac Monitor"},{type:"BLS (Basic Life Support)",count:"5",equipped:"Oxygen, First Aid, Stretcher"}]);
+  const [ambForm,setAmbForm]=useState({type:"",count:"",equipped:""});
+  const addAmbulance=()=>{if(ambForm.type.trim()&&ambForm.count.trim()){setAmbulances(a=>[...a,{...ambForm}]);setAmbForm({type:"",count:"",equipped:""});showSaved();}};
+  const removeAmbulance=(i)=>setAmbulances(a=>a.filter((_,idx)=>idx!==i));
+
+  const SECTION_LABELS={credentials:"📜 Credentials & Registration",facilities:"🏥 Facilities",treatments:"💊 Treatments & Packages",insurance:"🛡️ Empanelled Insurance",referralBonus:"🤝 Referral Bonus Program",emergency:"🚨 Emergency Contacts",ambulance:"🚑 Ambulance Fleet"};
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div style={{color:"#fff",fontWeight:800,fontSize:14}}>📋 Hospital Profile Manager</div>
+      </div>
+      {saved&&<div style={{background:"rgba(0,201,167,0.1)",border:"1px solid rgba(0,201,167,0.3)",borderRadius:11,padding:"8px 12px",marginBottom:12,color:"#00C9A7",fontSize:11,fontWeight:700,textAlign:"center"}}>✅ Saved</div>}
+
+      <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:9,marginBottom:14}}>
+        {HOSP_PROFILE_SECTIONS.map(s=>(
+          <div key={s} onClick={()=>setActiveSection(s)} style={{flexShrink:0,padding:"7px 13px",borderRadius:50,cursor:"pointer",fontSize:10,fontWeight:700,whiteSpace:"nowrap",background:activeSection===s?"rgba(94,53,177,0.2)":"rgba(255,255,255,0.05)",border:`1px solid ${activeSection===s?"rgba(94,53,177,0.4)":"rgba(255,255,255,0.1)"}`,color:activeSection===s?"#9575CD":"rgba(255,255,255,0.4)"}}>{SECTION_LABELS[s]}</div>
+        ))}
+      </div>
+
+      {activeSection==="credentials"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div style={{background:"rgba(0,201,167,0.06)",border:"1px solid rgba(0,201,167,0.2)",borderRadius:11,padding:"9px 12px",fontSize:9.5,color:"rgba(255,255,255,0.45)",lineHeight:1.6}}>ℹ️ Changes to registration credentials are reviewed by STETHOSCO Admin before your public listing updates.</div>
+          <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>HOSPITAL NAME</div>
+            <input value={credentials.name} onChange={e=>CF("name",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+          <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>REGISTRATION / LICENSE NUMBER</div>
+            <input value={credentials.regNo} onChange={e=>CF("regNo",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+          <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>ADDRESS</div>
+            <input value={credentials.address} onChange={e=>CF("address",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+          <div style={{display:"flex",gap:9}}>
+            <div style={{flex:1}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>BED COUNT</div>
+              <input type="number" value={credentials.beds} onChange={e=>CF("beds",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+            <div style={{flex:1}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>LICENSE EXPIRY</div>
+              <input type="date" value={credentials.licenseExpiry} onChange={e=>CF("licenseExpiry",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+          </div>
+          <div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>ADMINISTRATOR / MEDICAL SUPERINTENDENT</div>
+            <input value={credentials.adminName} onChange={e=>CF("adminName",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/></div>
+          <MBtn onClick={showSaved} style={{width:"100%",background:"linear-gradient(135deg,#5E35B1,#3949AB)"}}>💾 Save Credentials</MBtn>
+        </div>
+      )}
+
+      {activeSection==="facilities"&&(
+        <div>
+          <div style={{display:"flex",gap:7,marginBottom:12}}>
+            <input value={facInput} onChange={e=>setFacInput(e.target.value)} placeholder="e.g. MRI Suite" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+            <button onClick={addFacility} style={{background:"linear-gradient(135deg,#5E35B1,#3949AB)",border:"none",borderRadius:10,padding:"9px 15px",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Add</button>
+          </div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+            {facilities.map(f=>(
+              <div key={f} style={{display:"flex",alignItems:"center",gap:6,background:"rgba(94,53,177,0.1)",border:"1px solid rgba(94,53,177,0.25)",borderRadius:20,padding:"6px 8px 6px 12px"}}>
+                <span style={{color:"#B39DDB",fontSize:10.5,fontWeight:700}}>{f}</span>
+                <span onClick={()=>removeFacility(f)} style={{color:"rgba(255,255,255,0.35)",fontSize:12,cursor:"pointer",padding:"0 3px"}}>✕</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeSection==="treatments"&&(
+        <div>
+          <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:14}}>
+            {treatments.map((t,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:11,padding:11}}>
+                <div><div style={{color:"#fff",fontWeight:700,fontSize:11.5}}>{t.name}</div><div style={{color:"#00C9A7",fontSize:10,marginTop:2}}>{t.price}</div></div>
+                <button onClick={()=>removeTreatment(i)} style={{background:"rgba(255,71,87,0.1)",border:"1px solid rgba(255,71,87,0.25)",borderRadius:7,padding:"5px 9px",color:"#FF6B81",fontSize:9,fontWeight:700,cursor:"pointer"}}>✕</button>
+              </div>
+            ))}
+          </div>
+          <input value={tForm.name} onChange={e=>setTForm(f=>({...f,name:e.target.value}))} placeholder="Treatment / Package name" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:8}}/>
+          <div style={{display:"flex",gap:7}}>
+            <input value={tForm.price} onChange={e=>setTForm(f=>({...f,price:e.target.value}))} placeholder="Price range, e.g. ₹50,000 – ₹80,000" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+            <button onClick={addTreatment} style={{background:"linear-gradient(135deg,#5E35B1,#3949AB)",border:"none",borderRadius:10,padding:"9px 15px",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Add</button>
+          </div>
+        </div>
+      )}
+
+      {activeSection==="insurance"&&(
+        <div>
+          <div style={{display:"flex",gap:7,marginBottom:12}}>
+            <input value={insInput} onChange={e=>setInsInput(e.target.value)} placeholder="e.g. Bajaj Allianz" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+            <button onClick={addInsurer} style={{background:"linear-gradient(135deg,#5E35B1,#3949AB)",border:"none",borderRadius:10,padding:"9px 15px",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer"}}>Add</button>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {insurers.map((ins,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:10,padding:"9px 12px"}}>
+                <span style={{color:"#fff",fontSize:11.5,fontWeight:600}}>🛡️ {ins}</span>
+                <span onClick={()=>removeInsurer(i)} style={{color:"rgba(255,255,255,0.3)",fontSize:12,cursor:"pointer"}}>✕</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeSection==="referralBonus"&&(
+        <div>
+          <div style={{background:"rgba(244,160,18,0.06)",border:"1px solid rgba(244,160,18,0.2)",borderRadius:11,padding:"9px 12px",marginBottom:12,fontSize:9.5,color:"rgba(255,255,255,0.45)",lineHeight:1.6}}>ℹ️ This describes your hospital's own patient-referral program — separate from STETHOSCO's platform referral system, where incentives are determined and settled directly by STETHOSCO Admin.</div>
+          <textarea value={referralBonusDesc} onChange={e=>setReferralBonusDesc(e.target.value)} rows={5} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"11px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",resize:"none",marginBottom:10}}/>
+          <MBtn onClick={showSaved} style={{width:"100%",background:"linear-gradient(135deg,#5E35B1,#3949AB)"}}>💾 Save Program Description</MBtn>
+        </div>
+      )}
+
+      {activeSection==="emergency"&&(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {[{k:"emergencyLine",l:"24×7 Emergency Line"},{k:"traumaDesk",l:"Trauma Desk"},{k:"bloodBank",l:"Blood Bank Desk"}].map(f=>(
+            <div key={f.k}>
+              <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>{f.l.toUpperCase()}</div>
+              <input value={emergency[f.k]} onChange={e=>setEmergency(p=>({...p,[f.k]:e.target.value}))} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+            </div>
+          ))}
+          <MBtn onClick={showSaved} style={{width:"100%",background:"linear-gradient(135deg,#FF4757,#B71C1C)"}}>💾 Save Emergency Contacts</MBtn>
+        </div>
+      )}
+
+      {activeSection==="ambulance"&&(
+        <div>
+          <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:14}}>
+            {ambulances.map((a,i)=>(
+              <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:11,padding:11}}>
+                <div><div style={{color:"#fff",fontWeight:700,fontSize:11.5}}>🚑 {a.type} × {a.count}</div><div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginTop:2}}>{a.equipped}</div></div>
+                <button onClick={()=>removeAmbulance(i)} style={{background:"rgba(255,71,87,0.1)",border:"1px solid rgba(255,71,87,0.25)",borderRadius:7,padding:"5px 9px",color:"#FF6B81",fontSize:9,fontWeight:700,cursor:"pointer"}}>✕</button>
+              </div>
+            ))}
+          </div>
+          <input value={ambForm.type} onChange={e=>setAmbForm(f=>({...f,type:e.target.value}))} placeholder="Ambulance type (e.g. ALS)" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:8}}/>
+          <div style={{display:"flex",gap:7,marginBottom:8}}>
+            <input value={ambForm.count} onChange={e=>setAmbForm(f=>({...f,count:e.target.value}))} placeholder="Count" style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+            <input value={ambForm.equipped} onChange={e=>setAmbForm(f=>({...f,equipped:e.target.value}))} placeholder="Equipment onboard" style={{flex:2,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:10,color:"#fff",fontSize:11.5,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+          </div>
+          <MBtn onClick={addAmbulance} style={{width:"100%",background:"linear-gradient(135deg,#5E35B1,#3949AB)"}}>➕ Add Ambulance Type</MBtn>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HospRegForm({vendor,onSuccess}){
   const editing=!!vendor;
   const [busy,setBusy]=useState(false);
@@ -11388,7 +13342,7 @@ function HospRegForm({vendor,onSuccess}){
   const [declared,setDeclared]=useState(false);
   const toggle=(k,v)=>setF(p=>({...p,[k]:(p[k]||[]).includes(v)?p[k].filter(x=>x!==v):[...(p[k]||[]),v]}));
   const submit=()=>{setBusy(true);setTimeout(()=>{onSuccess();setBusy(false);},1400);};
-  const INP=({label,k,ph,type="text"})=>(<div style={{marginBottom:9}}><div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>{label}</div><input type={type} value={f[k]} onChange={e=>S(k,e.target.value)} placeholder={ph} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",fontFamily:"Outfit,sans-serif",boxSizing:"border-box"}}/></div>);
+  const INP=StableKeyedInput;
   const CHIPS=({label,k,opts,color="#5E35B1"})=>(
     <div style={{marginBottom:9}}>
       <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:5}}>{label} ({(f[k]||[]).length} selected)</div>
@@ -11405,7 +13359,7 @@ function HospRegForm({vendor,onSuccess}){
       <div style={{color:"rgba(255,255,255,0.45)",fontSize:9,fontWeight:800,letterSpacing:.8,marginBottom:4}}>HOSPITAL REGISTRATION — {STEPS[step].toUpperCase()}</div>
       <JStepBar total={5} cur={step} color="#5E35B1"/>
       {step===0&&<div className="su">
-        <INP label="Hospital Name *" k="name" ph="e.g. Apollo Hospitals"/>
+        <INP label="Hospital Name *" k="name" ph="e.g. Apollo Hospitals" f={f} S={S}/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
           <div>
             <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>OWNERSHIP TYPE</div>
@@ -11413,25 +13367,25 @@ function HospRegForm({vendor,onSuccess}){
               {["Private","Government","Trust / NGO","Public-Private Partnership","Corporate Chain"].map(o=><option key={o} style={{background:"#0A1628"}}>{o}</option>)}
             </select>
           </div>
-          <INP label="Established Year" k="estYear" ph="e.g. 1995"/>
+          <INP label="Established Year" k="estYear" ph="e.g. 1995" f={f} S={S}/>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
-          <INP label="Total Beds *" k="beds" ph="e.g. 250" type="number"/>
-          <INP label="ICU Beds" k="icuBeds" ph="e.g. 40" type="number"/>
+          <INP label="Total Beds *" k="beds" ph="e.g. 250" type="number" f={f} S={S}/>
+          <INP label="ICU Beds" k="icuBeds" ph="e.g. 40" type="number" f={f} S={S}/>
         </div>
         <div style={{color:"rgba(255,255,255,0.35)",fontSize:9,fontWeight:700,marginBottom:6,marginTop:4}}>📍 LOCATION</div>
         <LocSelector selState={f.selState} setSelState={v=>S("selState",v)} selCity={f.selCity} setSelCity={v=>S("selCity",v)}/>
-        <INP label="Full Address" k="address" ph="Street, Area, Landmark"/>
+        <INP label="Full Address" k="address" ph="Street, Area, Landmark" f={f} S={S}/>
         <button onClick={()=>setStep(1)} disabled={!f.name||!f.beds} style={{width:"100%",background:"linear-gradient(135deg,#5E35B1,#7B1FA2)",border:"none",borderRadius:10,padding:11,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",opacity:!f.name||!f.beds?0.5:1}}>Credentials →</button>
       </div>}
       {step===1&&<div className="su">
-        <INP label="Registration / License No. *" k="regNo" ph="HOSP/2024/001"/>
-        <INP label="GST Number" k="gst" ph="27AAACK1234A1Z5"/>
+        <INP label="Registration / License No. *" k="regNo" ph="HOSP/2024/001" f={f} S={S}/>
+        <INP label="GST Number" k="gst" ph="27AAACK1234A1Z5" f={f} S={S}/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
-          <INP label="Phone *" k="phone" ph="+91-XX-XXXX-XXXX"/>
-          <INP label="Email *" k="email" ph="admin@hospital.com"/>
+          <INP label="Phone *" k="phone" ph="+91-XX-XXXX-XXXX" f={f} S={S}/>
+          <INP label="Email *" k="email" ph="admin@hospital.com" f={f} S={S}/>
         </div>
-        <INP label="Website" k="website" ph="www.hospital.com"/>
+        <INP label="Website" k="website" ph="www.hospital.com" f={f} S={S}/>
         <CHIPS label="ACCREDITATIONS" k="accreditations" opts={["NABH","NABL","JCI (Joint Commission International)","ISO 9001","ISO 14001","Green OT Certified","NABH Blood Bank"]} color="#00C9A7"/>
         <div style={{display:"flex",alignItems:"center",gap:8,margin:"9px 0"}}>
           <input type="checkbox" checked={f.emergency247} onChange={e=>S("emergency247",e.target.checked)} id="emg_chk"/>
@@ -11458,8 +13412,8 @@ function HospRegForm({vendor,onSuccess}){
         </div>
         {f.hasAmbulance&&<>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9}}>
-            <INP label="Number of Ambulances" k="ambulanceCount" ph="e.g. 4" type="number"/>
-            <INP label="Ambulance Dispatch Contact" k="ambulanceContact" ph="+91-XX-XXXX-XXXX"/>
+            <INP label="Number of Ambulances" k="ambulanceCount" ph="e.g. 4" type="number" f={f} S={S}/>
+            <INP label="Ambulance Dispatch Contact" k="ambulanceContact" ph="+91-XX-XXXX-XXXX" f={f} S={S}/>
           </div>
           <CHIPS label="AMBULANCE TYPES OPERATED" k="ambulanceTypes" opts={VAМB_TYPES} color="#C62828"/>
         </>}
@@ -11472,7 +13426,7 @@ function HospRegForm({vendor,onSuccess}){
         </div>
       </div>}
       {step===4&&<div className="su">
-        <INP label="Administrator / Medical Superintendent Name *" k="adminName" ph="Dr. Full Name"/>
+        <INP label="Administrator / Medical Superintendent Name *" k="adminName" ph="Dr. Full Name" f={f} S={S}/>
         <div>
           <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>DESIGNATION</div>
           <select value={f.adminDesignation} onChange={e=>S("adminDesignation",e.target.value)} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 8px",marginBottom:9}}>
@@ -11799,6 +13753,7 @@ function DiagPortal({tab,setTab}){
   if(tab==="verify") return <VerificationSubmit roleId="diagnostic" roleName="Diagnostic Centre" onBack={()=>setTab("dashboard")}/>;
   if(tab==="jobs") return <JobsPortal role={{id:"diagnostic"}} profile={null}/>;
   if(tab==="boost") return <BoostCenter vertical="diagnostic" onBack={()=>setTab("dashboard")}/>;
+  if(tab==="postjob") return <PostJobWidget onBack={()=>setTab("dashboard")} orgLabel="Diagnostic Centre" roleColor="#0288D1"/>;
   if(tab==="profile") return(
     <div>
       <SecTitle>📍 Find Diagnostic Centres Nearby</SecTitle>
@@ -11828,6 +13783,14 @@ function DiagPortal({tab,setTab}){
         </div>
       </div>
       <BoostBanner vertical="diagnostic" onOpen={()=>setTab("boost")}/>
+      <div onClick={()=>setTab("postjob")} style={{background:"linear-gradient(135deg,rgba(2,136,209,0.22),rgba(2,136,209,0.08))",border:"1.5px solid rgba(2,136,209,0.35)",borderRadius:14,padding:"12px 14px",marginBottom:13,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+        <div style={{width:36,height:36,borderRadius:11,background:"rgba(2,136,209,0.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>💼</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{color:"#fff",fontWeight:800,fontSize:12}}>Post a Job</div>
+          <div style={{color:"rgba(255,255,255,0.45)",fontSize:9.5,marginTop:1}}>Hire lab technicians, radiologists & staff directly</div>
+        </div>
+        <div style={{color:"#0288D1",fontSize:20,flexShrink:0}}>→</div>
+      </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
         <Btn onClick={()=>setTab("tests")} style={{background:"linear-gradient(135deg,#E65100,#BF360C)",fontSize:11,padding:"9px"}}>🧪 Browse Tests</Btn>
         <Btn onClick={()=>setTab("mytests")} secondary style={{fontSize:11,padding:"9px"}}>📦 My Tests{myTests.length>0?` (${myTests.length})`:""}</Btn>
@@ -12202,6 +14165,7 @@ function PharmPortal({tab,setTab}){
   if(tab==="verify") return <VerificationSubmit roleId="pharmacy" roleName="Pharmacy" onBack={()=>setTab("dashboard")}/>;
   if(tab==="jobs") return <JobsPortal role={{id:"pharmacy"}} profile={null}/>;
   if(tab==="boost") return <BoostCenter vertical="pharmacy" onBack={()=>setTab("dashboard")}/>;
+  if(tab==="postjob") return <PostJobWidget onBack={()=>setTab("dashboard")} orgLabel="Pharmacy" roleColor="#00897B"/>;
   if(tab==="profile") return(
     <div>
       <SecTitle>📍 Find Pharmacies Nearby</SecTitle>
@@ -12231,6 +14195,14 @@ function PharmPortal({tab,setTab}){
         </div>
       </div>
       <BoostBanner vertical="pharmacy" onOpen={()=>setTab("boost")}/>
+      <div onClick={()=>setTab("postjob")} style={{background:"linear-gradient(135deg,rgba(0,137,123,0.22),rgba(0,137,123,0.08))",border:"1.5px solid rgba(0,137,123,0.35)",borderRadius:14,padding:"12px 14px",marginBottom:13,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+        <div style={{width:36,height:36,borderRadius:11,background:"rgba(0,137,123,0.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>💼</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{color:"#fff",fontWeight:800,fontSize:12}}>Post a Job</div>
+          <div style={{color:"rgba(255,255,255,0.45)",fontSize:9.5,marginTop:1}}>Hire pharmacists & counter staff directly</div>
+        </div>
+        <div style={{color:"#00897B",fontSize:20,flexShrink:0}}>→</div>
+      </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
         <Btn onClick={()=>setTab("catalogue")} style={{background:"linear-gradient(135deg,#00897B,#004D40)",fontSize:11,padding:"9px"}}>💊 Browse Catalogue</Btn>
         <Btn onClick={()=>setTab("myproducts")} secondary style={{fontSize:11,padding:"9px"}}>📦 My Products{myProducts.length>0?` (${myProducts.length})`:""}</Btn>
@@ -12278,6 +14250,79 @@ const TRAVEL_PACKAGES=[
 ];
 const VISA_TYPES=["Medical Visa (M-Visa)","Medical Attendant Visa (MX-Visa)","e-Medical Visa"];
 const VISA_ELIGIBLE_COUNTRIES=["USA","UK","Canada","Australia","UAE","Saudi Arabia","Nigeria","Kenya","Bangladesh","Sri Lanka","Afghanistan","Iraq","Oman","Qatar","Kuwait","Maldives","Fiji"];
+
+// ── Medical Travel Hospital Registration — JCI accreditation, credentials, ──
+// facilities, treatment packages, and patient onboarding services. Routes
+// through the same Admin verification queue as every other vendor type —
+// no listing goes live until Admin has reviewed the submitted documents.
+const TRAVEL_FACILITY_OPTIONS=["24×7 International Patient Desk","Multi-language Interpreters","Airport Pickup & Visa Assistance","Dedicated International Wing","Telemedicine Follow-up","Post-Op Recovery Suites"];
+function TravelHospRegForm({onSuccess,onBack}){
+  const [f,setF]=useState({hospName:"",jciNo:"",city:"",country:"India",beds:"",contactName:"",contactEmail:"",contactPhone:"",packages:"",servicesDesc:""});
+  const S=(k,v)=>setF(p=>({...p,[k]:v}));
+  const [facilities,setFacilities]=useState([]);
+  const toggleFacility=(fac)=>setFacilities(l=>l.includes(fac)?l.filter(x=>x!==fac):[...l,fac]);
+  const [agreed,setAgreed]=useState(false);
+  const [submitted,setSubmitted]=useState(false);
+
+  const allFilled=f.hospName.trim()&&f.jciNo.trim()&&f.city.trim()&&f.contactName.trim()&&f.contactEmail.trim();
+
+  const submit=()=>{
+    if(!allFilled||!agreed) return;
+    VERIFY_QUEUE.push({id:"v"+Date.now(),roleId:"travel",name:f.hospName+" (Medical Travel)",org:f.city+", "+f.country,submitted:new Date().toISOString().slice(0,10),status:"pending",docs:{jci:true,facilities:facilities.length>0},details:{jciNo:f.jciNo,packages:f.packages,facilities},flags:[]});
+    setSubmitted(true);
+  };
+
+  if(submitted) return (
+    <div style={{textAlign:"center",padding:"50px 16px"}}>
+      <div style={{fontSize:52,marginBottom:14}}>✅</div>
+      <div style={{color:"#fff",fontWeight:900,fontSize:17,fontFamily:"Playfair Display,serif",marginBottom:6}}>Registration Submitted</div>
+      <div style={{color:"rgba(255,255,255,0.45)",fontSize:12,marginBottom:20,lineHeight:1.6}}>{f.hospName} has been sent to STETHOSCO Admin for JCI credential verification.<br/>Your listing goes live once approved — typically within 3–5 business days.</div>
+      <MBtn onClick={onSuccess||onBack} style={{width:"100%"}}>Done</MBtn>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div style={{color:"#fff",fontWeight:800,fontSize:14}}>✈️ JCI Hospital Registration</div>
+      </div>
+      <div style={{background:"rgba(21,101,192,0.06)",border:"1px solid rgba(21,101,192,0.2)",borderRadius:11,padding:"9px 12px",marginBottom:14,fontSize:9.5,color:"rgba(255,255,255,0.5)",lineHeight:1.6}}>ℹ️ Every registration is reviewed by STETHOSCO Admin before the listing appears to international patients — JCI accreditation is verified against submitted documentation.</div>
+
+      <StableKeyedInput label="Hospital Name *" k="hospName" ph="e.g. Manipal Hospitals" f={f} S={S}/>
+      <StableKeyedInput label="JCI Accreditation Number *" k="jciNo" ph="e.g. JCI-IN-2026-0042" f={f} S={S}/>
+      <div style={{display:"flex",gap:9,marginBottom:9}}>
+        <div style={{flex:1}}><StableKeyedInput label="City *" k="city" ph="e.g. Bengaluru" f={f} S={S}/></div>
+        <div style={{flex:1}}><StableKeyedInput label="Bed Count" k="beds" ph="e.g. 600" type="number" f={f} S={S}/></div>
+      </div>
+      <StableKeyedInput label="International Patient Coordinator Name *" k="contactName" ph="Full name" f={f} S={S}/>
+      <div style={{display:"flex",gap:9,marginBottom:9}}>
+        <div style={{flex:1}}><StableKeyedInput label="Contact Email *" k="contactEmail" ph="intl.care@hospital.com" f={f} S={S}/></div>
+        <div style={{flex:1}}><StableKeyedInput label="Contact Phone" k="contactPhone" ph="+91-…" f={f} S={S}/></div>
+      </div>
+
+      <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:6,marginTop:6,fontWeight:700}}>FACILITIES OFFERED</div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:12}}>
+        {TRAVEL_FACILITY_OPTIONS.map(fac=>(
+          <div key={fac} onClick={()=>toggleFacility(fac)} style={{padding:"6px 11px",borderRadius:20,cursor:"pointer",fontSize:9.5,fontWeight:700,background:facilities.includes(fac)?"rgba(21,101,192,0.2)":"rgba(255,255,255,0.04)",border:`1px solid ${facilities.includes(fac)?"rgba(21,101,192,0.4)":"rgba(255,255,255,0.1)"}`,color:facilities.includes(fac)?"#4A9DFF":"rgba(255,255,255,0.4)"}}>{fac}</div>
+        ))}
+      </div>
+
+      <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>TREATMENT PACKAGES OFFERED</div>
+      <textarea value={f.packages} onChange={e=>S("packages",e.target.value)} placeholder="e.g. Cardiac Bypass Package, Joint Replacement Package, Fertility Treatment Package — with indicative pricing" rows={3} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",resize:"none",marginBottom:9}}/>
+
+      <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginBottom:5,fontWeight:700}}>PATIENT ONBOARDING SERVICES</div>
+      <textarea value={f.servicesDesc} onChange={e=>S("servicesDesc",e.target.value)} placeholder="e.g. Visa assistance, airport pickup, interpreter services, post-treatment follow-up" rows={3} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",resize:"none",marginBottom:14}}/>
+
+      <div onClick={()=>setAgreed(!agreed)} style={{display:"flex",gap:9,alignItems:"flex-start",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:12,padding:12,cursor:"pointer",marginBottom:14}}>
+        <div style={{width:19,height:19,borderRadius:6,border:`1.5px solid ${agreed?"#00C9A7":"rgba(255,255,255,0.3)"}`,background:agreed?"#00C9A7":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginTop:1}}>{agreed&&<span style={{color:"#04140F",fontSize:11,fontWeight:900}}>✓</span>}</div>
+        <div style={{color:"rgba(255,255,255,0.55)",fontSize:9.5,lineHeight:1.6}}>I confirm the JCI accreditation number and all credentials provided are accurate, and I authorize STETHOSCO Admin to verify them before this listing goes live.</div>
+      </div>
+
+      <MBtn onClick={submit} disabled={!allFilled||!agreed} style={{width:"100%",background:"linear-gradient(135deg,#1565C0,#0A1628)"}}>Submit for Admin Approval</MBtn>
+    </div>
+  );
+}
 
 function TravelPortal({tab,setTab}) {
   const expertDoctors=[
@@ -12362,11 +14407,29 @@ function TravelPortal({tab,setTab}) {
   );
 
   if(tab==="boost") return <BoostCenter vertical="travel" onBack={()=>setTab("hospitals")}/>;
+  if(tab==="jciregister") return <TravelHospRegForm onBack={()=>setTab("hospitals")} onSuccess={()=>setTab("hospitals")}/>;
+  if(tab==="patientreferral") return <PatientReferralWidget onBack={()=>setTab("hospitals")} vertical="travel" roleColor="#FF7043"/>;
   if(tab==="hospitals") return (
     <div>
       <div style={{color:"#fff",fontWeight:800,fontSize:14,marginBottom:4}}>🏥 JCI Accredited Partner Hospitals</div>
       <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,marginBottom:12}}>{JCI_HOSPITALS.length} Joint Commission International accredited hospitals across India</div>
       <BoostBanner vertical="travel" onOpen={()=>setTab("boost")} label="🏥 Hospital? Get featured in this list" sub="Priority placement for international patient enquiries · plans from ₹7,999/mo"/>
+      <div onClick={()=>setTab("jciregister")} style={{background:"linear-gradient(135deg,rgba(21,101,192,0.22),rgba(21,101,192,0.08))",border:"1.5px solid rgba(21,101,192,0.35)",borderRadius:14,padding:"12px 14px",marginBottom:14,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+        <div style={{width:36,height:36,borderRadius:11,background:"rgba(21,101,192,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>📋</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{color:"#fff",fontWeight:800,fontSize:12}}>Register Your Hospital (JCI)</div>
+          <div style={{color:"rgba(255,255,255,0.45)",fontSize:9.5,marginTop:1}}>Credentials, facilities & packages · reviewed by Admin</div>
+        </div>
+        <div style={{color:"#4A9DFF",fontSize:20,flexShrink:0}}>→</div>
+      </div>
+      <div onClick={()=>setTab("patientreferral")} style={{background:"linear-gradient(135deg,rgba(255,112,67,0.22),rgba(255,112,67,0.08))",border:"1.5px solid rgba(255,112,67,0.35)",borderRadius:14,padding:"12px 14px",marginBottom:14,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+        <div style={{width:36,height:36,borderRadius:11,background:"rgba(255,112,67,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>✈️</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{color:"#fff",fontWeight:800,fontSize:12}}>Refer a Patient to a Partner Hospital</div>
+          <div style={{color:"rgba(255,255,255,0.45)",fontSize:9.5,marginTop:1}}>Send case details to a partner hospital · track with referral code</div>
+        </div>
+        <div style={{color:"#FF7043",fontSize:20,flexShrink:0}}>→</div>
+      </div>
       {JCI_HOSPITALS.map((h,i)=>(
         <Card key={h.name} onClick={()=>setSelHospital(h)} style={{marginBottom:9,cursor:"pointer",animation:`su .3s ease ${i*.05}s both`}}>
           <div style={{display:"flex",gap:11,alignItems:"flex-start"}}>
@@ -13603,8 +15666,8 @@ function DoctorPublicProfile({doc,onBack,setTab}) {
         </div>
         <div style={{background:"rgba(0,0,0,0.25)",borderRadius:10,padding:"9px 13px",fontFamily:"monospace",fontSize:12,color:"#C4B5FD",letterSpacing:0.5,wordBreak:"break-all"}}>{profileUrl}</div>
         <div style={{display:"flex",gap:7,marginTop:10}}>
-          {[{l:"WhatsApp",icon:"💬",bg:"#25D366"},{l:"Instagram",icon:"📸",bg:"#E1306C"},{l:"Facebook",icon:"📘",bg:"#1877F2"},{l:"QR Code",icon:"📷",bg:"#5E35B1"},{l:"Email",icon:"✉️",bg:"#0066CC"}].map(s=>(
-            <div key={s.l} style={{flex:1,background:`${s.bg}18`,border:`1px solid ${s.bg}28`,borderRadius:9,padding:"8px 4px",textAlign:"center",cursor:"pointer"}}>
+          {[{l:"WhatsApp",icon:"💬",bg:"#25D366",action:()=>window.open(`https://wa.me/?text=${encodeURIComponent("Check out this doctor profile on STETHOSCO: "+profileUrl)}`,"_blank")},{l:"Instagram",icon:"📸",bg:"#E1306C",action:copyLink},{l:"Facebook",icon:"📘",bg:"#1877F2",action:()=>window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(profileUrl)}`,"_blank")},{l:"QR Code",icon:"📷",bg:"#5E35B1",action:copyLink},{l:"Email",icon:"✉️",bg:"#0066CC",action:()=>window.open(`mailto:?subject=${encodeURIComponent("Doctor Profile on STETHOSCO")}&body=${encodeURIComponent(profileUrl)}`,"_blank")}].map(s=>(
+            <div key={s.l} onClick={s.action} style={{flex:1,background:`${s.bg}18`,border:`1px solid ${s.bg}28`,borderRadius:9,padding:"8px 4px",textAlign:"center",cursor:"pointer"}}>
               <div style={{fontSize:16}}>{s.icon}</div>
               <div style={{color:"rgba(255,255,255,0.45)",fontSize:9,marginTop:3}}>{s.l}</div>
             </div>
@@ -13728,7 +15791,7 @@ function DoctorPublicProfile({doc,onBack,setTab}) {
             <div style={{color:"rgba(255,255,255,0.5)",fontSize:11,letterSpacing:1,marginBottom:12,fontWeight:700}}>🌐 SOCIAL MEDIA & ONLINE PRESENCE</div>
             {socialLinks.length===0&&<div style={{color:"rgba(255,255,255,0.25)",fontSize:12,textAlign:"center",padding:"12px 0"}}>No social links added yet</div>}
             {socialLinks.map(s=>(
-              <div key={s.key} style={{display:"flex",alignItems:"center",gap:11,background:`${s.color}0D`,border:`1px solid ${s.color}25`,borderRadius:12,padding:"11px 13px",marginBottom:8,cursor:"pointer"}}>
+              <div key={s.key} onClick={()=>window.open(s.url.startsWith("http")?s.url:`https://${s.url}`,"_blank")} style={{display:"flex",alignItems:"center",gap:11,background:`${s.color}0D`,border:`1px solid ${s.color}25`,borderRadius:12,padding:"11px 13px",marginBottom:8,cursor:"pointer"}}>
                 <div style={{width:38,height:38,borderRadius:11,background:`${s.color}18`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{s.icon}</div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{color:"#fff",fontWeight:700,fontSize:12}}>{s.label}</div>
@@ -13887,8 +15950,8 @@ function HospitalPublicProfile({hosp,onBack}) {
         </div>
         <div style={{background:"rgba(0,0,0,0.25)",borderRadius:10,padding:"9px 13px",fontFamily:"monospace",fontSize:12,color:"#A5D6A7",letterSpacing:0.5,wordBreak:"break-all"}}>{profileUrl}</div>
         <div style={{display:"flex",gap:7,marginTop:10}}>
-          {[{l:"WhatsApp",icon:"💬",bg:"#25D366"},{l:"Instagram",icon:"📸",bg:"#E1306C"},{l:"Facebook",icon:"📘",bg:"#1877F2"},{l:"Twitter",icon:"🐦",bg:"#1DA1F2"},{l:"Email",icon:"✉️",bg:"#0066CC"}].map(s=>(
-            <div key={s.l} style={{flex:1,background:`${s.bg}18`,border:`1px solid ${s.bg}28`,borderRadius:9,padding:"8px 4px",textAlign:"center",cursor:"pointer"}}>
+          {[{l:"WhatsApp",icon:"💬",bg:"#25D366",action:()=>window.open(`https://wa.me/?text=${encodeURIComponent("Check out this hospital on STETHOSCO: "+profileUrl)}`,"_blank")},{l:"Instagram",icon:"📸",bg:"#E1306C",action:copyLink},{l:"Facebook",icon:"📘",bg:"#1877F2",action:()=>window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(profileUrl)}`,"_blank")},{l:"Twitter",icon:"🐦",bg:"#1DA1F2",action:()=>window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(profileUrl)}`,"_blank")},{l:"Email",icon:"✉️",bg:"#0066CC",action:()=>window.open(`mailto:?subject=${encodeURIComponent("Hospital Profile on STETHOSCO")}&body=${encodeURIComponent(profileUrl)}`,"_blank")}].map(s=>(
+            <div key={s.l} onClick={s.action} style={{flex:1,background:`${s.bg}18`,border:`1px solid ${s.bg}28`,borderRadius:9,padding:"8px 4px",textAlign:"center",cursor:"pointer"}}>
               <div style={{fontSize:16}}>{s.icon}</div>
               <div style={{color:"rgba(255,255,255,0.45)",fontSize:9,marginTop:3}}>{s.l}</div>
             </div>
@@ -13996,7 +16059,7 @@ function HospitalPublicProfile({hosp,onBack}) {
             <div style={{color:"rgba(255,255,255,0.5)",fontSize:11,letterSpacing:1,marginBottom:12,fontWeight:700}}>🌐 OFFICIAL SOCIAL CHANNELS</div>
             {socialLinks.length===0&&<div style={{color:"rgba(255,255,255,0.25)",fontSize:12,textAlign:"center",padding:"12px 0"}}>No social links available</div>}
             {socialLinks.map(s=>(
-              <div key={s.key} style={{display:"flex",alignItems:"center",gap:11,background:`${s.color}0D`,border:`1px solid ${s.color}25`,borderRadius:12,padding:"11px 13px",marginBottom:8,cursor:"pointer"}}>
+              <div key={s.key} onClick={()=>window.open(s.url.startsWith("http")?s.url:`https://${s.url}`,"_blank")} style={{display:"flex",alignItems:"center",gap:11,background:`${s.color}0D`,border:`1px solid ${s.color}25`,borderRadius:12,padding:"11px 13px",marginBottom:8,cursor:"pointer"}}>
                 <div style={{width:38,height:38,borderRadius:11,background:`${s.color}18`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20,flexShrink:0}}>{s.icon}</div>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{color:"#fff",fontWeight:700,fontSize:12}}>{s.label}</div>
@@ -14659,6 +16722,8 @@ function EventDetail({event:ev,onBack}) {
 
 // ─── NOTIFICATIONS ────────────────────────────
 function ResearchNotifications({setViewEvent}) {
+  const [prefs,setPrefs]=useState([{l:"Notify 15 days before",i:"📅",on:true},{l:"Notify 7 days before",i:"⏰",on:true},{l:"Notify 1 day before",i:"🔔",on:true},{l:"Event day reminder",i:"🚨",on:false},{l:"New article alerts",i:"📄",on:true},{l:"Registration deadline alerts",i:"🎟️",on:true}]);
+  const togglePref=(idx)=>setPrefs(p=>p.map((x,i)=>i===idx?{...x,on:!x.on}:x));
   const upcoming=RESEARCH_EVENTS.filter(ev=>{
     const diff=Math.ceil((new Date(ev.date)-TODAY)/(1000*60*60*24));
     return diff>=0&&diff<=15;
@@ -14706,13 +16771,13 @@ function ResearchNotifications({setViewEvent}) {
           {/* Notification preferences */}
           <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:16,padding:14}}>
             <div style={{color:"rgba(255,255,255,0.5)",fontSize:11,fontWeight:700,letterSpacing:0.5,marginBottom:11}}>⚙️ NOTIFICATION PREFERENCES</div>
-            {[{l:"Notify 15 days before",i:"📅",on:true},{l:"Notify 7 days before",i:"⏰",on:true},{l:"Notify 1 day before",i:"🔔",on:true},{l:"Event day reminder",i:"🚨",on:false},{l:"New article alerts",i:"📄",on:true},{l:"Registration deadline alerts",i:"🎟️",on:true}].map((p,i)=>(
+            {prefs.map((p,i)=>(
               <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:i<5?"1px solid rgba(255,255,255,0.04)":"none"}}>
                 <div style={{display:"flex",gap:9,alignItems:"center"}}>
                   <span style={{fontSize:16}}>{p.i}</span>
                   <span style={{color:"rgba(255,255,255,0.6)",fontSize:12}}>{p.l}</span>
                 </div>
-                <div style={{width:38,height:21,borderRadius:11,background:p.on?"#00C9A7":"rgba(255,255,255,0.1)",cursor:"pointer",position:"relative"}}>
+                <div onClick={()=>togglePref(i)} style={{width:38,height:21,borderRadius:11,background:p.on?"#00C9A7":"rgba(255,255,255,0.1)",cursor:"pointer",position:"relative"}}>
                   <div style={{width:17,height:17,borderRadius:"50%",background:"#fff",position:"absolute",top:2,left:p.on?19:2,transition:"left .25s"}}/>
                 </div>
               </div>
@@ -14757,8 +16822,10 @@ function ResearchInstProfile() {
   const [declared,setDeclared]=useState(true);
   const [newsTC,setNewsTC]=useState(true);
   const [showAlerts,setShowAlerts]=useState(false);
+  const [showPostJob,setShowPostJob]=useState(false);
   const focus=["Immunology","Translational Science","Oncology","Infectious Disease","Clinical Pharmacology"];
   if(showAlerts) return <ProJobAlertsSubscription onBack={()=>setShowAlerts(false)} audienceLabel="Research Institutes" defaultPlan="institute"/>;
+  if(showPostJob) return <PostJobWidget onBack={()=>setShowPostJob(false)} orgLabel="Institute" roleColor="#00BCD4"/>;
   return (
     <div style={{display:"flex",flexDirection:"column",gap:13}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -14767,6 +16834,14 @@ function ResearchInstProfile() {
       </div>
       {editing&&<SelfDeclarationCheck checked={declared} onChange={setDeclared} subjectLabel="research institute registration"/>}
       {editing&&<TermsAndConditionsBlock checked={newsTC} onChange={setNewsTC} stakeholderType="News & Events institute partner"/>}
+      <div onClick={()=>setShowPostJob(true)} style={{background:"linear-gradient(135deg,rgba(0,188,212,0.18),rgba(0,188,212,0.06))",border:"1.5px solid rgba(0,188,212,0.35)",borderRadius:14,padding:12,cursor:"pointer",display:"flex",alignItems:"center",gap:9}}>
+        <span style={{fontSize:18}}>💼</span>
+        <div style={{flex:1}}>
+          <div style={{color:"#00BCD4",fontWeight:800,fontSize:12}}>Post a Job</div>
+          <div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>Hire researchers & faculty directly, no referral needed</div>
+        </div>
+        <span style={{color:"rgba(255,255,255,0.3)",fontSize:16}}>›</span>
+      </div>
       <div onClick={()=>setShowAlerts(true)} style={{background:"linear-gradient(135deg,rgba(156,39,176,0.15),rgba(156,39,176,0.05))",border:"1.5px solid rgba(156,39,176,0.3)",borderRadius:14,padding:12,cursor:"pointer",display:"flex",alignItems:"center",gap:9}}>
         <span style={{fontSize:18}}>📢</span>
         <div style={{flex:1}}>
@@ -15515,6 +17590,7 @@ function BloodBankRegForm({vendor,onSuccess}){
   const editing=!!vendor;
   const [step,setStep]=useState(0);
   const [busy,setBusy]=useState(false);
+  const [bbTC,setBbTC]=useState(false);
   const makeInv=()=>VBLOOD_GROUPS.map(g=>{const ex=vendor?.bloodInventory?.find(b=>b.group===g);return {group:g,units:String(ex?.units||""),components:ex?.components||[]};});
   const [f,setF]=useState({name:vendor?.name||"",org:vendor?.org||"",state:vendor?.state||"Telangana",city:vendor?.city||"Hyderabad",pincode:vendor?.pincode||"",address:vendor?.address||"",phone:vendor?.phone||"",emergency:vendor?.emergency||"",email:vendor?.email||"",regNo:vendor?.regNo||"",licNo:vendor?.licNo||"",open24x7:vendor?.open24x7||false,homeDelivery:vendor?.homeDelivery||false,bloodInventory:makeInv(),certs:(vendor?.certs||[]).join(", "),directorName:"",directorPhone:"",desc:vendor?.desc||""});
   const S=(k,v)=>setF(p=>({...p,[k]:v}));
@@ -15523,7 +17599,7 @@ function BloodBankRegForm({vendor,onSuccess}){
   const submit=()=>{setBusy(true);setTimeout(()=>{const inv=f.bloodInventory.filter(b=>parseInt(b.units)>0||b.components.length>0).map(b=>({...b,units:parseInt(b.units)||0}));const data={type:"bloodbank",...f,bloodInventory:inv,lastUpdated:new Date().toISOString().slice(0,10),certs:f.certs.split(",").map(s=>s.trim()).filter(Boolean)};delete data.bloodInventory;data.bloodInventory=inv;if(editing){const idx=VENDORS_DB.findIndex(v=>v.id===vendor.id);if(idx>=0)Object.assign(VENDORS_DB[idx],data);}else{VENDORS_DB.push({...data,id:"bb"+Date.now(),status:"pending",verified:false,joined:new Date().toISOString().slice(0,10),rating:0,reviews:0,dist:+(Math.random()*8+.5).toFixed(1)});}setBusy(false);onSuccess();},1700);};
   return(
     <div>
-      <VStepBar total={3} cur={step} color="linear-gradient(135deg,#E53935,#B71C1C)"/>
+      <VStepBar total={4} cur={step} color="linear-gradient(135deg,#E53935,#B71C1C)"/>
       {step===0&&<div className="su">
         <VInp req label="Blood Bank Name" value={f.name} onChange={v=>S("name",v)} placeholder="e.g. Rotary Blood Bank"/>
         <VInp label="Organisation / Parent Hospital" value={f.org} onChange={v=>S("org",v)} placeholder="Parent organisation"/>
@@ -15557,7 +17633,12 @@ function BloodBankRegForm({vendor,onSuccess}){
         <VInp label="Director Phone" value={f.directorPhone} onChange={v=>S("directorPhone",v)} placeholder="+91-XXXXXXXXXX" type="tel"/>
         <VUpBox/>
         <div style={{background:"rgba(229,57,53,0.08)",border:"1px solid rgba(229,57,53,0.2)",borderRadius:11,padding:"10px 13px",marginBottom:12,fontSize:10,color:"rgba(255,255,255,0.45)",lineHeight:1.6}}>ℹ️ CDSCO and state blood bank authority approval required. Admin verification within 48 hrs. Verified banks appear in Blood Donor search.</div>
-        <div style={{display:"flex",gap:8}}><Btn secondary onClick={()=>setStep(1)} style={{flex:1}}>← Back</Btn><Btn onClick={submit} disabled={busy} style={{flex:2,background:"linear-gradient(135deg,#E53935,#B71C1C)"}}>{busy?"⏳ Submitting…":editing?"✅ Save Changes":"✅ Submit Registration"}</Btn></div>
+        <div style={{display:"flex",gap:8}}><Btn secondary onClick={()=>setStep(1)} style={{flex:1}}>← Back</Btn><Btn onClick={()=>setStep(3)} style={{flex:2,background:"linear-gradient(135deg,#E53935,#B71C1C)"}}>Commission & Terms →</Btn></div>
+      </div>}
+      {step===3&&<div className="su">
+        <CommissionDisclosure type="bloodbankBooking"/>
+        <TermsAndConditionsBlock checked={bbTC} onChange={setBbTC} stakeholderType="blood bank" commissionType="bloodbankBooking"/>
+        <div style={{display:"flex",gap:8}}><Btn secondary onClick={()=>setStep(2)} style={{flex:1}}>← Back</Btn><Btn onClick={submit} disabled={busy||!bbTC} style={{flex:2,background:"linear-gradient(135deg,#E53935,#B71C1C)"}}>{busy?"⏳ Submitting…":editing?"✅ Save Changes":"✅ Submit Registration"}</Btn></div>
       </div>}
     </div>
   );
@@ -15999,7 +18080,16 @@ function BloodRegister({setDonorProfile,donorProfile,setTab}) {
 
 function BloodRequests() {
   const [requested,setRequested]=useState({});
+  const [reqForm,setReqForm]=useState({bg:"",hospital:"",contact:""});
+  const [posted,setPosted]=useState(false);
   const urgencyConfig={CRITICAL:{color:"#FF1744",bg:"rgba(255,23,68,0.12)",label:"CRITICAL",icon:"🚨"},URGENT:{color:"#FF6D00",bg:"rgba(255,109,0,0.1)",label:"URGENT",icon:"⚠️"},MODERATE:{color:"#FFD600",bg:"rgba(255,214,0,0.08)",label:"MODERATE",icon:"📋"}};
+  const postRequest=()=>{
+    if(!reqForm.bg||!reqForm.hospital.trim()||!reqForm.contact.trim()) return;
+    BLOOD_REQUESTS.unshift({id:Date.now(),bg:reqForm.bg,units:1,patient:"Patient (details with hospital)",hospital:reqForm.hospital,city:"",urgency:"URGENT",postedAt:"Just now",contact:reqForm.contact,reason:"Posted via app",pincode:""});
+    setPosted(true);
+    setReqForm({bg:"",hospital:"",contact:""});
+    setTimeout(()=>setPosted(false),3000);
+  };
   return (
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
       <div style={{background:"linear-gradient(135deg,#1A0000,#4A0000)",borderRadius:18,padding:15,position:"relative",overflow:"hidden"}}>
@@ -16012,15 +18102,16 @@ function BloodRequests() {
       {/* Post new request */}
       <div style={{background:"rgba(229,57,53,0.07)",border:"1px solid rgba(229,57,53,0.2)",borderRadius:14,padding:14}}>
         <div style={{color:"rgba(255,255,255,0.5)",fontSize:11,fontWeight:700,letterSpacing:0.5,marginBottom:10}}>➕ POST URGENT BLOOD REQUEST</div>
+        {posted&&<div style={{background:"rgba(0,201,167,0.12)",border:"1px solid rgba(0,201,167,0.3)",borderRadius:10,padding:"9px 12px",marginBottom:10,color:"#00C9A7",fontSize:11,fontWeight:700,textAlign:"center"}}>✅ Blood request posted — visible to nearby donors now</div>}
         <div style={{display:"flex",gap:8,marginBottom:10}}>
-          {BLOOD_GROUPS.slice(0,4).map(bg=><div key={bg} style={{flex:1,background:`${BLOOD_COLORS[bg]}15`,border:`1px solid ${BLOOD_COLORS[bg]}30`,borderRadius:8,padding:"7px",textAlign:"center",cursor:"pointer"}}><div style={{color:BLOOD_COLORS[bg],fontSize:11,fontWeight:900}}>{bg}</div></div>)}
+          {BLOOD_GROUPS.slice(0,4).map(bg=><div key={bg} onClick={()=>setReqForm(f=>({...f,bg}))} style={{flex:1,background:reqForm.bg===bg?`${BLOOD_COLORS[bg]}35`:`${BLOOD_COLORS[bg]}15`,border:`1px solid ${reqForm.bg===bg?BLOOD_COLORS[bg]:BLOOD_COLORS[bg]+"30"}`,borderRadius:8,padding:"7px",textAlign:"center",cursor:"pointer"}}><div style={{color:BLOOD_COLORS[bg],fontSize:11,fontWeight:900}}>{bg}</div></div>)}
         </div>
         <div style={{display:"flex",gap:8,marginBottom:10}}>
-          {BLOOD_GROUPS.slice(4).map(bg=><div key={bg} style={{flex:1,background:`${BLOOD_COLORS[bg]}15`,border:`1px solid ${BLOOD_COLORS[bg]}30`,borderRadius:8,padding:"7px",textAlign:"center",cursor:"pointer"}}><div style={{color:BLOOD_COLORS[bg],fontSize:11,fontWeight:900}}>{bg}</div></div>)}
+          {BLOOD_GROUPS.slice(4).map(bg=><div key={bg} onClick={()=>setReqForm(f=>({...f,bg}))} style={{flex:1,background:reqForm.bg===bg?`${BLOOD_COLORS[bg]}35`:`${BLOOD_COLORS[bg]}15`,border:`1px solid ${reqForm.bg===bg?BLOOD_COLORS[bg]:BLOOD_COLORS[bg]+"30"}`,borderRadius:8,padding:"7px",textAlign:"center",cursor:"pointer"}}><div style={{color:BLOOD_COLORS[bg],fontSize:11,fontWeight:900}}>{bg}</div></div>)}
         </div>
-        <input placeholder="Hospital name & city" style={{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(229,57,53,0.15)",borderRadius:10,color:"#fff",fontSize:12,padding:"9px 12px",marginBottom:8}}/>
-        <input placeholder="Contact number" style={{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(229,57,53,0.15)",borderRadius:10,color:"#fff",fontSize:12,padding:"9px 12px",marginBottom:8}}/>
-        <div style={{width:"100%",background:"linear-gradient(135deg,#8B0000,#C62828)",borderRadius:11,padding:"11px",textAlign:"center",cursor:"pointer",color:"#fff",fontWeight:800,fontSize:13}}>🚨 Post Blood Request</div>
+        <input value={reqForm.hospital} onChange={e=>setReqForm(f=>({...f,hospital:e.target.value}))} placeholder="Hospital name & city" style={{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(229,57,53,0.15)",borderRadius:10,color:"#fff",fontSize:12,padding:"9px 12px",marginBottom:8,boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+        <input value={reqForm.contact} onChange={e=>setReqForm(f=>({...f,contact:e.target.value}))} placeholder="Contact number" style={{width:"100%",background:"rgba(255,255,255,0.04)",border:"1px solid rgba(229,57,53,0.15)",borderRadius:10,color:"#fff",fontSize:12,padding:"9px 12px",marginBottom:8,boxSizing:"border-box",fontFamily:"Outfit,sans-serif"}}/>
+        <div onClick={postRequest} style={{width:"100%",background:reqForm.bg&&reqForm.hospital.trim()&&reqForm.contact.trim()?"linear-gradient(135deg,#8B0000,#C62828)":"rgba(255,255,255,0.06)",borderRadius:11,padding:"11px",textAlign:"center",cursor:reqForm.bg&&reqForm.hospital.trim()&&reqForm.contact.trim()?"pointer":"not-allowed",color:reqForm.bg&&reqForm.hospital.trim()&&reqForm.contact.trim()?"#fff":"rgba(255,255,255,0.3)",fontWeight:800,fontSize:13}}>🚨 Post Blood Request</div>
       </div>
 
       {/* Active requests */}
@@ -16052,7 +18143,7 @@ function BloodRequests() {
               ))}
             </div>
             {requested[r.id]?(
-              <div style={{background:"rgba(76,175,80,0.15)",border:"1px solid rgba(76,175,80,0.3)",borderRadius:10,padding:"10px",textAlign:"center",color:"#81C784",fontSize:12,fontWeight:700}}>✅ You've responded to this request</div>
+              <div style={{background:"rgba(76,175,80,0.15)",border:"1px solid rgba(76,175,80,0.3)",borderRadius:10,padding:"10px",textAlign:"center",color:"#81C784",fontSize:12,fontWeight:700}}>✅ You have responded to this request</div>
             ):(
               <button onClick={()=>setRequested(rq=>({...rq,[r.id]:true}))} style={{width:"100%",background:`linear-gradient(135deg,${urg.color}CC,${urg.color})`,border:"none",borderRadius:11,padding:"12px",color:"#fff",fontWeight:900,fontSize:13,cursor:"pointer",fontFamily:"Outfit"}}>
                 🩸 I Can Donate — Respond Now
@@ -16673,7 +18764,9 @@ function HealthVitals({log,setLog}) {
 function HealthNutrition({log}) {
   const today = log[log.length-1];
   const netCal = 1850 - today.calBurned;
-  const pctWater = Math.min(100,Math.round(today.water/3*100));
+  const [waterAdded,setWaterAdded]=useState(0);
+  const currentWater = Math.round((today.water+waterAdded)*100)/100;
+  const pctWater = Math.min(100,Math.round(currentWater/3*100));
   const [meals]=useState([
     {time:"07:30",meal:"Breakfast",items:"Oats + Banana + Milk",cal:380,icon:"🍌"},
     {time:"10:30",meal:"Mid-Morning",items:"1 Apple + Handful Almonds",cal:180,icon:"🍎"},
@@ -16747,7 +18840,7 @@ function HealthNutrition({log}) {
         <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:10}}>
           <div style={{width:60,height:60,borderRadius:18,background:"rgba(66,165,245,0.15)",border:"2px solid rgba(66,165,245,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,flexShrink:0}}>💧</div>
           <div style={{flex:1}}>
-            <div style={{color:"#fff",fontWeight:800,fontSize:20}}>{today.water}L <span style={{fontSize:12,fontWeight:400,color:"rgba(255,255,255,0.4)"}}>/ 3L goal</span></div>
+            <div style={{color:"#fff",fontWeight:800,fontSize:20}}>{currentWater}L <span style={{fontSize:12,fontWeight:400,color:"rgba(255,255,255,0.4)"}}>/ 3L goal</span></div>
             <div style={{height:8,background:"rgba(255,255,255,0.08)",borderRadius:4,marginTop:8,overflow:"hidden"}}>
               <div style={{height:"100%",width:`${pctWater}%`,background:"linear-gradient(90deg,#42A5F5,#29B6F6)",borderRadius:4}}/>
             </div>
@@ -16759,7 +18852,7 @@ function HealthNutrition({log}) {
         </div>
         <div style={{display:"flex",gap:7}}>
           {[0.25,0.5,1.0].map(v=>(
-            <div key={v} style={{flex:1,background:"rgba(42,150,245,0.1)",border:"1px solid rgba(42,150,245,0.2)",borderRadius:9,padding:"7px",textAlign:"center",cursor:"pointer"}}>
+            <div key={v} onClick={()=>setWaterAdded(w=>w+v)} style={{flex:1,background:"rgba(42,150,245,0.1)",border:"1px solid rgba(42,150,245,0.2)",borderRadius:9,padding:"7px",textAlign:"center",cursor:"pointer"}}>
               <div style={{color:"#42A5F5",fontWeight:700,fontSize:12}}>+{v}L</div>
             </div>
           ))}
@@ -17116,6 +19209,123 @@ function BoostPreviewCard({color,icon,listingWord}){
   );
 }
 
+// ── STETHOSCO Payment Gateway — the single, unified checkout used for every ──
+// paid feature across the platform: Boost plans, Pharmacy/Diagnostic orders,
+// Insurance premiums, Marketplace purchases, Ambulance dispatch, and more.
+const PAYMENT_METHODS=[
+  {id:"upi",icon:"📱",label:"UPI",sub:"Google Pay, PhonePe, Paytm & more"},
+  {id:"card",icon:"💳",label:"Credit / Debit Card",sub:"Visa, Mastercard, RuPay"},
+  {id:"netbanking",icon:"🏦",label:"Net Banking",sub:"All major Indian banks"},
+  {id:"wallet",icon:"👛",label:"STETHOSCO Wallet",sub:"balance"},
+];
+function PaymentGateway({amount,label,portal="Payment",icon="💳",isCredit=false,onBack,onPaid,accentColor="#0066CC"}){
+  const [method,setMethod]=useState("upi");
+  const [processing,setProcessing]=useState(false);
+  const [upiId,setUpiId]=useState("");
+  const [receipt,setReceipt]=useState(null);
+  const [payError,setPayError]=useState("");
+  const [liveBalance,setLiveBalance]=useState(null);
+
+  useEffect(()=>{
+    VirtualDB.wallet.getBalance().then(setLiveBalance);
+    return VirtualDB.onBalanceChange(setLiveBalance);
+  },[]);
+
+  const pay=()=>{
+    setProcessing(true);
+    setPayError("");
+    const meta={portal,icon,label,fromWalletBalance:method==="wallet",requireFunds:method==="wallet"};
+    const call=isCredit?VirtualDB.wallet.credit(amount,meta):VirtualDB.wallet.debit(amount,meta);
+    call.then(entry=>{
+      setProcessing(false);
+      setReceipt(entry);
+    }).catch(err=>{
+      setProcessing(false);
+      setPayError(err.message||"Payment failed — please try again");
+    });
+  };
+
+  if(processing) return (
+    <div style={{textAlign:"center",padding:"70px 20px"}}>
+      <div style={{width:64,height:64,borderRadius:"50%",border:"3px solid rgba(255,255,255,0.1)",borderTop:`3px solid ${accentColor}`,margin:"0 auto 20px",animation:"spin 0.8s linear infinite"}}/>
+      <div style={{color:"#fff",fontWeight:700,fontSize:13}}>Processing payment…</div>
+      <div style={{color:"rgba(255,255,255,0.4)",fontSize:10.5,marginTop:6}}>Do not close or go back</div>
+    </div>
+  );
+
+  if(receipt) return (
+    <div style={{textAlign:"center",padding:"40px 16px"}}>
+      <div style={{fontSize:52,marginBottom:14}}>✅</div>
+      <div style={{color:"#fff",fontWeight:900,fontSize:17,fontFamily:"Playfair Display,serif",marginBottom:6}}>{isCredit?"Funds Added":"Payment Successful"}</div>
+      <div style={{color:"rgba(255,255,255,0.45)",fontSize:12,marginBottom:18,lineHeight:1.6}}>{label}</div>
+      <div style={{background:"rgba(255,255,255,0.04)",border:"1.5px dashed rgba(255,255,255,0.2)",borderRadius:14,padding:16,marginBottom:16,textAlign:"left"}}>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:10}}>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:9}}>RECEIPT CODE</div>
+          <div style={{color:accentColor,fontWeight:900,fontSize:14,letterSpacing:1}}>{receipt.receiptCode}</div>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:10,paddingTop:10,borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:9}}>{isCredit?"AMOUNT CREDITED":"AMOUNT PAID"}</div>
+          <div style={{color:"#fff",fontWeight:700,fontSize:14}}>{inr(amount)}</div>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",marginBottom:10,paddingTop:10,borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:9}}>PAYMENT METHOD</div>
+          <div style={{color:"#fff",fontWeight:700,fontSize:11.5,textTransform:"uppercase"}}>{method}</div>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",paddingTop:10,borderTop:"1px solid rgba(255,255,255,0.06)"}}>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:9}}>STATUS</div>
+          <div style={{color:"#00C9A7",fontWeight:700,fontSize:11.5}}>✅ Processed by Admin</div>
+        </div>
+      </div>
+      <div style={{background:"rgba(0,201,167,0.06)",border:"1px solid rgba(0,201,167,0.2)",borderRadius:12,padding:"10px 13px",marginBottom:20,fontSize:9.5,color:"rgba(255,255,255,0.5)",lineHeight:1.6,textAlign:"left"}}>
+        🧾 This receipt has been saved to your Wallet & Payments history. STETHOSCO Admin has processed and confirmed receipt of this payment.
+      </div>
+      <MBtn onClick={()=>onPaid&&onPaid(method)} style={{width:"100%"}}>Continue</MBtn>
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:16}}>
+        <BackBtn onClick={onBack}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>💳 STETHOSCO Payment Gateway</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>{label}</div></div>
+      </div>
+
+      <div style={{background:`linear-gradient(135deg,${accentColor}2e,#0A1628)`,borderRadius:16,padding:16,marginBottom:16,textAlign:"center"}}>
+        <div style={{color:"rgba(255,255,255,0.6)",fontSize:10}}>Amount Payable</div>
+        <div style={{color:"#fff",fontWeight:900,fontSize:28,fontFamily:"Playfair Display,serif",marginTop:2}}>{inr(amount)}</div>
+      </div>
+
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:10,fontWeight:800,letterSpacing:1,marginBottom:8}}>CHOOSE PAYMENT METHOD</div>
+      <div style={{display:"flex",flexDirection:"column",gap:9,marginBottom:16}}>
+        {PAYMENT_METHODS.map(m=>(
+          <div key={m.id} onClick={()=>setMethod(m.id)} style={{background:method===m.id?`${accentColor}15`:"rgba(255,255,255,0.03)",border:`1.5px solid ${method===m.id?accentColor+"60":"rgba(255,255,255,0.1)"}`,borderRadius:13,padding:"12px 13px",display:"flex",alignItems:"center",gap:12,cursor:"pointer"}}>
+            <div style={{width:38,height:38,borderRadius:11,background:method===m.id?`${accentColor}25`:"rgba(255,255,255,0.06)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,flexShrink:0}}>{m.icon}</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{color:"#fff",fontWeight:700,fontSize:12}}>{m.label}</div>
+              <div style={{color:"rgba(255,255,255,0.4)",fontSize:9.5,marginTop:1}}>{m.sub==="balance"?`Balance: ${liveBalance!=null?inr(liveBalance):"…"}`:m.sub}</div>
+            </div>
+            <div style={{width:19,height:19,borderRadius:"50%",border:`1.5px solid ${method===m.id?accentColor:"rgba(255,255,255,0.3)"}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{method===m.id&&<div style={{width:10,height:10,borderRadius:"50%",background:accentColor}}/>}</div>
+          </div>
+        ))}
+      </div>
+
+      {method==="wallet"&&liveBalance!=null&&liveBalance<amount&&(
+        <div style={{background:"rgba(255,71,87,0.08)",border:"1px solid rgba(255,71,87,0.25)",borderRadius:11,padding:"10px 13px",marginBottom:16,fontSize:10,color:"#FF6B81",fontWeight:700}}>⚠️ Insufficient wallet balance ({inr(liveBalance)}). Add funds or choose another method.</div>
+      )}
+
+      {method==="upi"&&(
+        <input value={upiId} onChange={e=>setUpiId(e.target.value)} placeholder="Enter UPI ID (e.g. name@okhdfcbank)" style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:11,color:"#fff",fontSize:11.5,padding:"11px 13px",boxSizing:"border-box",fontFamily:"Outfit,sans-serif",marginBottom:16}}/>
+      )}
+
+      {payError&&<div style={{background:"rgba(255,71,87,0.08)",border:"1px solid rgba(255,71,87,0.25)",borderRadius:11,padding:"10px 13px",marginBottom:16,fontSize:10,color:"#FF6B81",fontWeight:700}}>⚠️ {payError}</div>}
+
+      <div style={{background:"rgba(0,201,167,0.06)",border:"1px solid rgba(0,201,167,0.2)",borderRadius:11,padding:"10px 13px",marginBottom:16,fontSize:9.5,color:"rgba(255,255,255,0.5)",lineHeight:1.6}}>🔒 Payments are processed securely. Card and bank details are never stored on STETHOSCO servers.</div>
+
+      <MBtn onClick={pay} disabled={method==="wallet"&&liveBalance!=null&&liveBalance<amount} style={{width:"100%",background:`linear-gradient(135deg,${accentColor},#0A1628)`}}>Pay {inr(amount)}</MBtn>
+    </div>
+  );
+}
+
 function BoostCenter({vertical="hospital",onBack}){
   const [active,setActive]=useState(BOOST_VERTICALS[vertical]?vertical:"hospital");
   const [selPlan,setSelPlan]=useState(null);
@@ -17129,6 +19339,10 @@ function BoostCenter({vertical="hospital",onBack}){
       <div style={{color:"rgba(255,255,255,0.45)",fontSize:12,marginBottom:20,lineHeight:1.6}}>{selPlan?.name} plan activated at {inr(selPlan?.price||0)}/month.<br/>Increased visibility typically shows within 2–4 hours.</div>
       <MBtn onClick={()=>{setStep("plans");setSelPlan(null);onBack&&onBack();}} style={{margin:"0 auto"}}>Back to Dashboard</MBtn>
     </div>
+  );
+
+  if(step==="pay"&&selPlan) return (
+    <PaymentGateway amount={selPlan.price} label={`${v.label} · ${selPlan.name} Plan`} portal={`Boost — ${v.label}`} icon={v.icon} accentColor={v.color} onBack={()=>setStep("checkout")} onPaid={()=>setStep("success")}/>
   );
 
   if(step==="checkout"&&selPlan) return (
@@ -17145,7 +19359,7 @@ function BoostCenter({vertical="hospital",onBack}){
         {selPlan.features.map((f,i)=><div key={i} style={{display:"flex",gap:7,fontSize:11,color:"rgba(255,255,255,0.6)",marginBottom:6}}><span style={{color:v.color}}>✓</span>{f}</div>)}
       </MCard>
       <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,padding:"10px 12px",marginBottom:16,fontSize:10,color:"rgba(255,255,255,0.4)",lineHeight:1.6}}>💳 Billed monthly. Cancel anytime from Boost Center. Visibility increase applies within 2–4 hours of activation.</div>
-      <MBtn onClick={()=>setStep("success")} style={{width:"100%",background:`linear-gradient(135deg,${v.color},#0A1628)`}}>Confirm & Activate Boost — {inr(selPlan.price)}/mo</MBtn>
+      <MBtn onClick={()=>setStep("pay")} style={{width:"100%",background:`linear-gradient(135deg,${v.color},#0A1628)`}}>Continue to Payment — {inr(selPlan.price)}/mo</MBtn>
     </div>
   );
 
@@ -17190,8 +19404,162 @@ function BoostCenter({vertical="hospital",onBack}){
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// COLLEGE EVENTS PANEL (shared by both portal types)
+// 🧑‍⚕️ BROWSE DOCTORS — peer directory with Follow, Rate & Notify
 // ═══════════════════════════════════════════════════════════════════
+const DOCTORS_DIRECTORY_DB=[
+  {id:"d1",name:"Dr. Suresh Mehta",photo:"🧑‍⚕️",specialty:"Cardiology",subSpecialty:"DM Cardiology · Cath Lab",hospital:"Kokilaben Dhirubhai Ambani Hospital",city:"Mumbai",state:"Maharashtra",exp:18,rating:4.8,ratingCount:412,followers:2200,verified:true,patientsTreated:4200,surgeries:340,education:"MBBS – Seth GS Medical College · MD, DM Cardiology – AIIMS New Delhi",recentUpdate:"Published \"Five-year outcomes of TAVI in elderly patients\" in IJCC 2021"},
+  {id:"d2",name:"Dr. Ananya Reddy",photo:"👩‍⚕️",specialty:"Cardiology",subSpecialty:"Interventional Cardiology",hospital:"Apollo Hospitals",city:"Hyderabad",state:"Telangana",exp:12,rating:4.8,ratingCount:298,followers:1240,verified:true,patientsTreated:3100,surgeries:210,education:"MBBS – Osmania Medical College · MD, DM Cardiology – NIMS Hyderabad",recentUpdate:"Certified in Advanced Structural Heart Interventions, 2026"},
+  {id:"d3",name:"Dr. Vikram Singh",photo:"🧑‍⚕️",specialty:"Orthopedics",subSpecialty:"Joint Replacement Surgery",hospital:"Fortis Hospital",city:"Delhi",state:"Delhi",exp:15,rating:4.7,ratingCount:356,followers:980,verified:true,patientsTreated:2800,surgeries:890,education:"MBBS – Maulana Azad Medical College · MS Ortho – AIIMS New Delhi",recentUpdate:"Performed 500th robotic knee replacement surgery"},
+  {id:"d4",name:"Dr. Meera Iyer",photo:"👩‍⚕️",specialty:"Pediatrics",subSpecialty:"Neonatology",hospital:"Rainbow Children's Hospital",city:"Bengaluru",state:"Karnataka",exp:9,rating:4.9,ratingCount:501,followers:2100,verified:true,patientsTreated:5200,surgeries:0,education:"MBBS – Bangalore Medical College · MD Pediatrics – NIMHANS",recentUpdate:"Featured speaker at Indian Academy of Pediatrics Conclave 2026"},
+  {id:"d5",name:"Dr. Arjun Nair",photo:"🧑‍⚕️",specialty:"Neurology",subSpecialty:"Stroke & Movement Disorders",hospital:"AIIMS",city:"Delhi",state:"Delhi",exp:18,rating:4.6,ratingCount:267,followers:1560,verified:true,patientsTreated:3900,surgeries:0,education:"MBBS, MD, DM Neurology – AIIMS New Delhi",recentUpdate:"Co-authored national stroke management guidelines, 2026"},
+  {id:"d6",name:"Dr. Kavya Menon",photo:"👩‍⚕️",specialty:"Gynaecology",subSpecialty:"High-Risk Obstetrics",hospital:"Cloudnine Hospital",city:"Chennai",state:"Tamil Nadu",exp:11,rating:4.8,ratingCount:389,followers:1780,verified:true,patientsTreated:4600,surgeries:520,education:"MBBS – Madras Medical College · MS OBG – JIPMER",recentUpdate:"Launched free antenatal screening camp in rural Tamil Nadu"},
+  {id:"d7",name:"Dr. Rohan Kulkarni",photo:"🧑‍⚕️",specialty:"Oncology",subSpecialty:"Surgical Oncology",hospital:"Tata Memorial Hospital",city:"Mumbai",state:"Maharashtra",exp:20,rating:4.9,ratingCount:612,followers:3400,verified:true,patientsTreated:6100,surgeries:1400,education:"MBBS – GMC Mumbai · MS, MCh Surgical Oncology – Tata Memorial Centre",recentUpdate:"Recognised with the National Oncology Excellence Award 2026"},
+  {id:"d8",name:"Dr. Sneha Pillai",photo:"👩‍⚕️",specialty:"Dermatology",subSpecialty:"Cosmetic Dermatology",hospital:"Manipal Hospital",city:"Pune",state:"Maharashtra",exp:7,rating:4.5,ratingCount:198,followers:890,verified:true,patientsTreated:2400,surgeries:0,education:"MBBS – BJ Medical College · MD Dermatology – KEM Hospital",recentUpdate:"Started a monthly free skin-cancer screening drive"},
+  {id:"d9",name:"Dr. Aditya Rao",photo:"🧑‍⚕️",specialty:"Psychiatry",subSpecialty:"Adolescent Mental Health",hospital:"NIMHANS",city:"Bengaluru",state:"Karnataka",exp:14,rating:4.7,ratingCount:243,followers:1120,verified:true,patientsTreated:3300,surgeries:0,education:"MBBS – St. John's Medical College · MD Psychiatry – NIMHANS",recentUpdate:"Released a public awareness series on adolescent anxiety"},
+  {id:"d10",name:"Dr. Priya Nair",photo:"👩‍⚕️",specialty:"Gastroenterology",subSpecialty:"Hepatology",hospital:"Kokilaben Dhirubhai Ambani Hospital",city:"Mumbai",state:"Maharashtra",exp:10,rating:4.6,ratingCount:176,followers:760,verified:true,patientsTreated:2600,surgeries:180,education:"MBBS – Grant Medical College · MD, DM Gastroenterology – KEM Hospital",recentUpdate:"Presented liver-disease research at APASL 2026"},
+];
+const DOC_SPECIALTIES=["All","Cardiology","Orthopedics","Pediatrics","Neurology","Gynaecology","Oncology","Dermatology","Psychiatry","Gastroenterology"];
+
+function StarRow({value,size=12,onRate}){
+  return (
+    <div style={{display:"flex",gap:2}}>
+      {[1,2,3,4,5].map(n=>(
+        <span key={n} onClick={onRate?()=>onRate(n):undefined} style={{fontSize:size,cursor:onRate?"pointer":"default",color:n<=Math.round(value)?"#F4A012":"rgba(255,255,255,0.18)"}}>★</span>
+      ))}
+    </div>
+  );
+}
+
+function DoctorProfileView({doc,onBack,following,onToggleFollow,notifyOn,onToggleNotify,userRating,onRate,roleColor="#0066CC"}){
+  const [reviewSent,setReviewSent]=useState(false);
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>Doctor Profile</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>{doc.specialty}</div></div>
+      </div>
+      <div style={{background:`linear-gradient(135deg,${roleColor}2e,#0A1628)`,borderRadius:18,padding:16,marginBottom:13}}>
+        <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:10}}>
+          <div style={{width:58,height:58,borderRadius:17,background:"rgba(255,255,255,0.14)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,flexShrink:0}}>{doc.photo}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{color:"#fff",fontWeight:900,fontSize:15,fontFamily:"Playfair Display,serif"}}>{doc.name}</div>
+            <div style={{color:"rgba(255,255,255,0.6)",fontSize:10.5,marginTop:1}}>{doc.subSpecialty}</div>
+            <div style={{color:"rgba(255,255,255,0.45)",fontSize:10,marginTop:1}}>{doc.hospital}, {doc.city}</div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:12,flexWrap:"wrap"}}>
+          {doc.verified&&<span style={{background:"rgba(0,201,167,0.2)",border:"1px solid rgba(0,201,167,0.4)",borderRadius:5,padding:"2px 7px",color:"#00C9A7",fontSize:9,fontWeight:800}}>✓ VERIFIED</span>}
+          <StarRow value={doc.rating} size={12}/>
+          <span style={{color:"rgba(255,255,255,0.5)",fontSize:9.5}}>{doc.rating} ({doc.ratingCount})</span>
+          <span style={{color:"rgba(255,255,255,0.35)",fontSize:9.5}}>· {doc.followers.toLocaleString()} followers</span>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={onToggleFollow} style={{flex:1,background:following?"rgba(255,255,255,0.14)":`linear-gradient(135deg,${roleColor},#0A1628)`,border:following?"1.5px solid rgba(255,255,255,0.3)":"none",borderRadius:11,padding:"10px",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>{following?"✓ Following":"+ Follow"}</button>
+          <button onClick={onToggleNotify} title="Get notified on professional updates" style={{width:44,background:notifyOn?"rgba(244,160,18,0.22)":"rgba(255,255,255,0.1)",border:notifyOn?"1.5px solid rgba(244,160,18,0.5)":"1.5px solid rgba(255,255,255,0.18)",borderRadius:11,fontSize:16,cursor:"pointer"}}>{notifyOn?"🔔":"🔕"}</button>
+        </div>
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:13}}>
+        {[{v:doc.exp,l:"Years Exp"},{v:doc.patientsTreated.toLocaleString(),l:"Patients"},{v:doc.surgeries>0?doc.surgeries.toLocaleString():"—",l:"Surgeries"}].map((s,i)=>(
+          <div key={i} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:12,padding:"10px 6px",textAlign:"center"}}>
+            <div style={{color:roleColor,fontWeight:900,fontSize:15}}>{s.v}</div>
+            <div style={{color:"rgba(255,255,255,0.4)",fontSize:8.5}}>{s.l}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,padding:13,marginBottom:12}}>
+        <div style={{color:"rgba(255,255,255,0.35)",fontSize:9,fontWeight:800,letterSpacing:.6,marginBottom:6,textTransform:"uppercase"}}>Education</div>
+        <div style={{color:"rgba(255,255,255,0.65)",fontSize:11,lineHeight:1.6,marginBottom:10}}>{doc.education}</div>
+        <div style={{color:"rgba(255,255,255,0.35)",fontSize:9,fontWeight:800,letterSpacing:.6,marginBottom:6,textTransform:"uppercase"}}>Latest Professional Update</div>
+        <div style={{color:"rgba(255,255,255,0.65)",fontSize:11,lineHeight:1.6}}>📌 {doc.recentUpdate}</div>
+        {notifyOn&&<div style={{color:"#F4A012",fontSize:9.5,marginTop:8,fontWeight:700}}>🔔 You will be notified when {doc.name.split(" ").slice(-1)} posts new updates</div>}
+      </div>
+      <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:14,padding:13}}>
+        <div style={{color:"rgba(255,255,255,0.35)",fontSize:9,fontWeight:800,letterSpacing:.6,marginBottom:9,textTransform:"uppercase"}}>Rate this Doctor</div>
+        {reviewSent?(
+          <div style={{color:"#00C9A7",fontSize:11,fontWeight:700}}>✓ Thanks! Your rating of {userRating}★ has been recorded.</div>
+        ):(
+          <>
+            <div style={{marginBottom:9}}><StarRow value={userRating||0} size={22} onRate={onRate}/></div>
+            <MBtn onClick={()=>userRating>0&&setReviewSent(true)} disabled={!userRating} style={{width:"100%"}}>Submit Rating</MBtn>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BrowseDoctors({onBack,roleColor="#0066CC"}){
+  const [search,setSearch]=useState("");
+  const [spec,setSpec]=useState("All");
+  const [following,setFollowing]=useState({d1:true,d7:true});
+  const [notify,setNotify]=useState({d1:true});
+  const [ratings,setRatings]=useState({});
+  const [selDoc,setSelDoc]=useState(null);
+  const [toast,setToast]=useState("");
+  const showT=msg=>{setToast(msg);setTimeout(()=>setToast(""),2600);};
+
+  const toggleFollow=id=>{
+    setFollowing(f=>{const n={...f,[id]:!f[id]}; showT(n[id]?"Now following":"Unfollowed"); return n;});
+  };
+  const toggleNotify=id=>{
+    setNotify(f=>{const n={...f,[id]:!f[id]}; if(n[id])showT("🔔 Notifications turned on"); return n;});
+  };
+  const rateDoc=(id,val)=>setRatings(r=>({...r,[id]:val}));
+
+  const filtered=DOCTORS_DIRECTORY_DB.filter(d=>
+    (spec==="All"||d.specialty===spec) &&
+    (search===""||d.name.toLowerCase().includes(search.toLowerCase())||d.specialty.toLowerCase().includes(search.toLowerCase())||d.city.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  if(selDoc) return <DoctorProfileView doc={selDoc} onBack={()=>setSelDoc(null)} following={!!following[selDoc.id]} onToggleFollow={()=>toggleFollow(selDoc.id)} notifyOn={!!notify[selDoc.id]} onToggleNotify={()=>toggleNotify(selDoc.id)} userRating={ratings[selDoc.id]||0} onRate={v=>rateDoc(selDoc.id,v)} roleColor={roleColor}/>;
+
+  return (
+    <div>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+        <BackBtn onClick={onBack}/>
+        <div><div style={{color:"#fff",fontWeight:800,fontSize:14}}>👥 Browse Doctors</div><div style={{color:"rgba(255,255,255,0.35)",fontSize:10}}>Follow peers · rate · get update alerts</div></div>
+      </div>
+      {toast&&<div style={{background:"rgba(0,201,167,0.08)",border:"1px solid rgba(0,201,167,0.25)",borderRadius:11,padding:"8px 12px",marginBottom:10,color:"#00C9A7",fontSize:11,fontWeight:700}}>{toast}</div>}
+      <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search by name, specialty or city..." style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:11,color:"#fff",fontSize:11.5,padding:"10px 13px",fontFamily:"Outfit,sans-serif",boxSizing:"border-box",marginBottom:10}}/>
+      <div style={{display:"flex",gap:6,overflowX:"auto",paddingBottom:9,marginBottom:11}}>
+        {DOC_SPECIALTIES.map(s=>(
+          <div key={s} onClick={()=>setSpec(s)} style={{flexShrink:0,padding:"6px 12px",borderRadius:50,cursor:"pointer",fontSize:9.5,fontWeight:700,whiteSpace:"nowrap",background:spec===s?`${roleColor}25`:"rgba(255,255,255,0.04)",border:`1px solid ${spec===s?roleColor+"60":"rgba(255,255,255,0.08)"}`,color:spec===s?"#fff":"rgba(255,255,255,0.4)"}}>{s}</div>
+        ))}
+      </div>
+      <div style={{color:"rgba(255,255,255,0.35)",fontSize:9.5,marginBottom:9}}>{filtered.length} doctor{filtered.length!==1?"s":""} found</div>
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {filtered.map(d=>(
+          <div key={d.id} style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:15,padding:13}}>
+            <div onClick={()=>setSelDoc(d)} style={{display:"flex",gap:11,alignItems:"center",cursor:"pointer",marginBottom:10}}>
+              <div style={{width:46,height:46,borderRadius:14,background:`${roleColor}22`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>{d.photo}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{display:"flex",alignItems:"center",gap:5}}>
+                  <div style={{color:"#fff",fontWeight:800,fontSize:12.5}}>{d.name}</div>
+                  {d.verified&&<span style={{color:"#00C9A7",fontSize:10}}>✓</span>}
+                </div>
+                <div style={{color:"rgba(255,255,255,0.5)",fontSize:10}}>{d.specialty} · {d.exp} yrs</div>
+                <div style={{color:"rgba(255,255,255,0.35)",fontSize:9.5}}>{d.hospital}, {d.city}</div>
+              </div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+              <div style={{display:"flex",alignItems:"center",gap:5}}>
+                <StarRow value={d.rating} size={11}/>
+                <span style={{color:"rgba(255,255,255,0.45)",fontSize:9.5}}>{d.rating} ({d.ratingCount})</span>
+              </div>
+              <span style={{color:"rgba(255,255,255,0.35)",fontSize:9.5}}>{d.followers.toLocaleString()} followers</span>
+            </div>
+            <div style={{display:"flex",gap:7}}>
+              <button onClick={()=>toggleFollow(d.id)} style={{flex:1,background:following[d.id]?"rgba(255,255,255,0.1)":`linear-gradient(135deg,${roleColor},#0A1628)`,border:following[d.id]?"1px solid rgba(255,255,255,0.2)":"none",borderRadius:9,padding:"8px",color:"#fff",fontSize:10.5,fontWeight:800,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>{following[d.id]?"✓ Following":"+ Follow"}</button>
+              <button onClick={()=>toggleNotify(d.id)} style={{width:38,background:notify[d.id]?"rgba(244,160,18,0.22)":"rgba(255,255,255,0.08)",border:notify[d.id]?"1px solid rgba(244,160,18,0.5)":"1px solid rgba(255,255,255,0.15)",borderRadius:9,fontSize:14,cursor:"pointer"}}>{notify[d.id]?"🔔":"🔕"}</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
 function CollegeEventsPanel({onBack,collegeId,showAdd}){
   const [reged,setReged]=useState([]);
   const [toast,setToast]=useState("");
@@ -17427,6 +19795,7 @@ function MedCollegePortal({tab,setTab}){
   if(tab==="events") return <CollegeEventsPanel onBack={()=>setTab("dashboard")} collegeId={selC?.id||MC_COLLEGES_DB[0]?.id} showAdd={true}/>;
   if(tab==="notifications") return <CollegeNotifPanel onBack={()=>setTab("dashboard")}/>;
   if(tab==="boost") return <BoostCenter vertical="college" onBack={()=>setTab("dashboard")}/>;
+  if(tab==="postjob") return <PostJobWidget onBack={()=>setTab("dashboard")} orgLabel="Medical College" roleColor="#3949AB"/>;
 
   if(showForm||editC) return <MedCollegeRegForm existing={editC} onBack={()=>{setShowForm(false);setEditC(null);}} onSuccess={()=>{setShowForm(false);setEditC(null);setSuccess("College profile saved! Under admin review.");setTimeout(()=>setSuccess(""),5000);}}/>;
 
@@ -17496,6 +19865,14 @@ function MedCollegePortal({tab,setTab}){
         stats={[{v:MC_COLLEGES_DB.length,l:"Colleges"},{v:MC_COLLEGES_DB.reduce((s,c)=>s+(c.seats?.mbbs?.total||0),0),l:"MBBS Seats"},{v:MC_COLLEGES_DB.filter(c=>c.status==="verified").length,l:"Verified"},{v:MC_EVENTS_DB.length,l:"Events"}]}/>
       <MBtn onClick={()=>setShowForm(true)} style={{width:"100%",marginBottom:13,padding:"13px",fontSize:13,fontWeight:800,background:"linear-gradient(135deg,#6A1B9A,#4527A0)"}}>➕ Register New Medical College</MBtn>
       <BoostBanner vertical="college" onOpen={()=>setTab("boost")} label="Get featured in NEET Predictor results" sub="5.1× more predictor matches shown · plans from ₹9,999/mo"/>
+      <div onClick={()=>setTab("postjob")} style={{background:"linear-gradient(135deg,rgba(57,73,171,0.22),rgba(57,73,171,0.08))",border:"1.5px solid rgba(57,73,171,0.35)",borderRadius:14,padding:"12px 14px",marginBottom:13,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+        <div style={{width:36,height:36,borderRadius:11,background:"rgba(57,73,171,0.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>💼</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{color:"#fff",fontWeight:800,fontSize:12}}>Post a Job</div>
+          <div style={{color:"rgba(255,255,255,0.45)",fontSize:9.5,marginTop:1}}>Hire faculty & academic staff directly</div>
+        </div>
+        <div style={{color:"#3949AB",fontSize:20,flexShrink:0}}>→</div>
+      </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginBottom:13}}>
         {[{icon:"🗓️",label:"Events & Fests",sub:`${MC_EVENTS_DB.filter(e=>e.collegeId===MC_COLLEGES_DB[0]?.id).length} upcoming`,color:"#AB47BC",tab:"events"},{icon:"🔔",label:"Notifications",sub:"6 alerts",color:"#FF7043",tab:"notifications"}].map((q,i)=>(
           <MCard key={i} onClick={()=>setTab(q.tab)} style={{background:`${q.color}08`,borderColor:`${q.color}25`,cursor:"pointer",padding:14}}>
@@ -17908,6 +20285,7 @@ function StudentPortal({tab,setTab}){
   if(tab==="internships") return <StudentInternshipHub studentProfile={{name:"Aryan Mehta",course:"MBBS",year:"3rd Year",college:"Osmania Medical College",city:"Hyderabad",state:"Telangana"}} onBack={()=>{}}/>;  
   if(tab==="institute") return <InstituteCornerPanel onBack={()=>setTab("dashboard")}/>;
   if(tab==="proalerts") return <ProJobAlertsSubscription onBack={()=>setTab("dashboard")} audienceLabel="Medical Students" defaultPlan="hotjobs"/>;
+  if(tab==="browse") return <BrowseDoctors onBack={()=>setTab("dashboard")} roleColor="#3949AB"/>;
 
 
   const filtered=MC_INTERNSHIPS_DB.filter(int=>{
@@ -17986,7 +20364,7 @@ function StudentPortal({tab,setTab}){
         stats={[{v:profile.course,l:"Course"},{v:profile.year,l:"Year"},{v:profile.marks?.neet||"—",l:"NEET"},{v:applied.length,l:"Applied"}]}
       ><div style={{marginTop:5}}><MBadge label="NEET Qualified" color="#42A5F5" icon="✓"/><MBadge label="Profile Active" color="#00C9A7" icon="✓"/></div></MHero>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:9,marginBottom:14}}>
-        {[{icon:"👤",label:"My Profile",sub:"View & edit details",color:"#E91E63",action:()=>setSubView("profile")},{icon:"🏥",label:"Internships",sub:`${filtered.length} open now`,color:"#26A69A",action:()=>setSubView("internships")},{icon:"📋",label:"My Applications",sub:`${applied.length} submitted`,color:"#00C9A7",action:()=>setSubView("myapps")},{icon:"🎓",label:"Find Colleges",sub:"Medical & Nursing",color:"#AB47BC",action:()=>setSubView("colleges")},{icon:"🔔",label:"Job Alerts",sub:"Hot jobs & subscriptions",color:"#4A9DFF",action:()=>setTab("proalerts")}].map((q,i)=>(
+        {[{icon:"👤",label:"My Profile",sub:"View & edit details",color:"#E91E63",action:()=>setSubView("profile")},{icon:"🏥",label:"Internships",sub:`${filtered.length} open now`,color:"#26A69A",action:()=>setSubView("internships")},{icon:"📋",label:"My Applications",sub:`${applied.length} submitted`,color:"#00C9A7",action:()=>setSubView("myapps")},{icon:"🎓",label:"Find Colleges",sub:"Medical & Nursing",color:"#AB47BC",action:()=>setSubView("colleges")},{icon:"👥",label:"Browse Doctors",sub:"Follow, rate & learn",color:"#3949AB",action:()=>setTab("browse")},{icon:"🔔",label:"Job Alerts",sub:"Hot jobs & subscriptions",color:"#4A9DFF",action:()=>setTab("proalerts")}].map((q,i)=>(
           <MCard key={i} onClick={q.action} style={{background:`${q.color}08`,borderColor:`${q.color}25`,cursor:"pointer",padding:14}}>
             <div style={{fontSize:24,marginBottom:5}}>{q.icon}</div>
             <div style={{color:"#fff",fontWeight:700,fontSize:12}}>{q.label}</div>
@@ -18348,7 +20726,7 @@ function DoctorDashboardV2({setTab,docProfile}){
   const runAIMatch=async()=>{
     setAiLoading(true);
     try{
-      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:`Doctor profile: DM Cardiology, 18 years exp, ACLS/FCCS certs, Cath Lab expertise, Mumbai, CTC 28L, open to relocation. Return ONLY JSON array of 3 job matches: [{id,title,org,city,ctc,match(0-100),highlight}]`}]})});
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:`Doctor profile: DM Cardiology, 18 years exp, ACLS/FCCS certs, Cath Lab expertise, Mumbai, CTC 28L, open to relocation. Return ONLY JSON array of 3 job matches: [{id,title,org,city,ctc,match(0-100),highlight}]`}]})});
       const d=await res.json();
       const txt=d.content?.[0]?.text||"[]";
       const arr=JSON.parse(txt.replace(/```json|```/g,"").trim());
@@ -18402,13 +20780,37 @@ function DoctorDashboardV2({setTab,docProfile}){
       </div>
 
       {/* ── Feature Quick Actions ── */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6,marginBottom:10}}>
-        {[{icon:"📅",label:"Availability",tab:"availability",color:"#00C9A7"},{icon:"💰",label:"Earnings",tab:"earnings",color:"#F4A012"},{icon:"📋",label:"EMR",tab:"emr",color:"#AB47BC"},{icon:"✅",label:"Verify",tab:"verify",color:"#4A9DFF"},{icon:"🚀",label:"Boost",tab:"boost",color:"#FF7043"}].map(q=>(
+      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginBottom:6}}>
+        {[{icon:"📅",label:"Availability",tab:"availability",color:"#00C9A7"},{icon:"💰",label:"Earnings",tab:"earnings",color:"#F4A012"},{icon:"📋",label:"EMR",tab:"emr",color:"#AB47BC"}].map(q=>(
           <div key={q.tab} onClick={()=>setTab(q.tab)} style={{background:`${q.color}10`,border:`1.5px solid ${q.color}25`,borderRadius:12,padding:"10px 4px",textAlign:"center",cursor:"pointer"}}>
             <div style={{fontSize:18,marginBottom:3}}>{q.icon}</div>
             <div style={{color:q.color,fontSize:9,fontWeight:700}}>{q.label}</div>
           </div>
         ))}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:10}}>
+        {[{icon:"✅",label:"Verify",tab:"verify",color:"#4A9DFF"},{icon:"🚀",label:"Boost",tab:"boost",color:"#FF7043"},{icon:"👥",label:"Browse Docs",tab:"browse",color:"#EC407A"},{icon:"📋",label:"Refer Job",tab:"jobreferral",color:"#F4A012"}].map(q=>(
+          <div key={q.tab} onClick={()=>setTab(q.tab)} style={{background:`${q.color}10`,border:`1.5px solid ${q.color}25`,borderRadius:12,padding:"10px 4px",textAlign:"center",cursor:"pointer"}}>
+            <div style={{fontSize:18,marginBottom:3}}>{q.icon}</div>
+            <div style={{color:q.color,fontSize:9,fontWeight:700}}>{q.label}</div>
+          </div>
+        ))}
+      </div>
+      <div onClick={()=>setTab("patientreferral")} style={{background:"linear-gradient(135deg,rgba(0,102,204,0.3),rgba(0,102,204,0.12))",border:"1.5px solid rgba(0,102,204,0.4)",borderRadius:14,padding:"12px 14px",marginBottom:13,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+        <div style={{width:36,height:36,borderRadius:11,background:"rgba(0,102,204,0.25)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>🩺</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{color:"#fff",fontWeight:800,fontSize:12}}>Refer a Patient Case</div>
+          <div style={{color:"rgba(255,255,255,0.45)",fontSize:9.5,marginTop:1}}>Send case details to a hospital · track with referral code</div>
+        </div>
+        <div style={{color:"#4A9DFF",fontSize:20,flexShrink:0}}>→</div>
+      </div>
+      <div onClick={()=>setTab("teleconsult")} style={{background:"linear-gradient(135deg,rgba(0,89,76,0.35),rgba(0,201,167,0.15))",border:"1.5px solid rgba(0,201,167,0.4)",borderRadius:14,padding:"12px 14px",marginBottom:13,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+        <div style={{width:36,height:36,borderRadius:11,background:"rgba(0,201,167,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>🎥</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{color:"#fff",fontWeight:800,fontSize:12}}>Video Consultations Today</div>
+          <div style={{color:"rgba(255,255,255,0.45)",fontSize:9.5,marginTop:1}}>1 patient waiting now · 2 scheduled</div>
+        </div>
+        <div style={{color:"#00C9A7",fontSize:20,flexShrink:0}}>→</div>
       </div>
       <BoostBanner vertical="doctor" onOpen={()=>setTab("boost")}/>
 
@@ -18820,6 +21222,12 @@ const INIT_ONLINE_SLOTS_DATA=[
   {day:"Sun",slots:[],fee:600},
 ];
 
+const StableCfInput=({label,k,ph,type="text",cf,setCf})=>(
+  <div style={{marginBottom:10}}>
+    <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>{label}</div>
+    <input type={type} value={cf[k]} onChange={e=>setCf(x=>({...x,[k]:e.target.value}))} placeholder={ph} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",fontFamily:"Outfit,sans-serif",boxSizing:"border-box"}}/>
+  </div>
+);
 function DoctorAvailabilityMgr({onBack}){
   const CLR="#0066CC";
   const [clinics,setClinics]=useState(INIT_CLINICS_DATA);
@@ -18848,12 +21256,7 @@ function DoctorAvailabilityMgr({onBack}){
   const openOnline=(d)=>{const dd=onlineSlots.find(x=>x.day===d)||{slots:[],fee:600};setEditOnlineDay(d);setDaySlots([...dd.slots]);setDayFee(dd.fee);setView("editOnline");};
   const saveOnline=()=>{setOnlineSlots(os=>os.map(d=>d.day===editOnlineDay?{...d,slots:daySlots,fee:Number(dayFee)||600}:d));setView("overview");};
 
-  const INP=({label,k,ph,type="text"})=>(
-    <div style={{marginBottom:10}}>
-      <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>{label}</div>
-      <input type={type} value={cf[k]} onChange={F(k)} placeholder={ph} style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",fontFamily:"Outfit,sans-serif",boxSizing:"border-box"}}/>
-    </div>
-  );
+  const INP=StableCfInput;
 
   if(view==="addClinic"||view==="editClinic") return(
     <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -18862,9 +21265,9 @@ function DoctorAvailabilityMgr({onBack}){
         <div style={{color:"#fff",fontWeight:800,fontSize:15}}>{view==="addClinic"?"➕ Add Location":"✏️ Edit Location"}</div>
       </div>
       <div style={{background:"rgba(0,102,204,0.07)",border:"1px solid rgba(0,102,204,0.22)",borderRadius:15,padding:"14px 13px"}}>
-        <INP label="Clinic / Hospital Name *" k="name" ph="e.g. Mehta Heart Clinic"/>
-        <INP label="Full Address" k="addr" ph="Building, Street, Area, City, PIN"/>
-        <INP label="Contact Phone" k="phone" ph="022-XXXX-XXXX"/>
+        <INP label="Clinic / Hospital Name *" k="name" ph="e.g. Mehta Heart Clinic" cf={cf} setCf={setCf}/>
+        <INP label="Full Address" k="addr" ph="Building, Street, Area, City, PIN" cf={cf} setCf={setCf}/>
+        <INP label="Contact Phone" k="phone" ph="022-XXXX-XXXX" cf={cf} setCf={setCf}/>
         <div style={{marginBottom:10}}>
           <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>Facility Type</div>
           <select value={cf.type} onChange={F("type")} style={{width:"100%",background:"rgba(15,25,50,0.95)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",fontFamily:"Outfit,sans-serif"}}>
@@ -18891,7 +21294,7 @@ function DoctorAvailabilityMgr({onBack}){
             ))}
           </div>
         </div>
-        <INP label="Consultation Fee (₹)" k="fee" ph="e.g. 800" type="number"/>
+        <INP label="Consultation Fee (₹)" k="fee" ph="e.g. 800" type="number" cf={cf} setCf={setCf}/>
         <button onClick={saveClinic} style={{width:"100%",background:`linear-gradient(135deg,${CLR},${CLR}aa)`,border:"none",borderRadius:10,padding:"11px",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>💾 Save Location</button>
       </div>
     </div>
@@ -19024,7 +21427,7 @@ function DoctorEarningsDashboard({onBack}){
         <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:800,letterSpacing:1.3,marginBottom:3}}>NET EARNINGS — {PER[period].toUpperCase()}</div>
         <div style={{color:"#fff",fontWeight:900,fontSize:33,fontFamily:"Playfair Display,serif",letterSpacing:-1,marginBottom:10}}>{fmt(grand)}</div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-          {[{l:"Total Appts",v:d.online.count+d.clinic.count+d.hospital.count,co:"#4A9DFF"},{l:"Consultation",v:fmt(consult),co:"#00C9A7"},{l:"Commissions",v:fmt(comm),co:"#F4A012"}].map(s=>(
+          {[{l:"Total Appts",v:d.online.count+d.clinic.count+d.hospital.count,co:"#4A9DFF"},{l:"Consultation",v:fmt(consult),co:"#00C9A7"},{l:"Compensation",v:fmt(comm),co:"#F4A012"}].map(s=>(
             <div key={s.l} style={{background:"rgba(255,255,255,0.07)",borderRadius:9,padding:"6px 12px",textAlign:"center"}}>
               <div style={{color:s.co,fontWeight:900,fontSize:14}}>{s.v}</div>
               <div style={{color:"rgba(255,255,255,0.35)",fontSize:8}}>{s.l}</div>
@@ -19061,17 +21464,25 @@ function DoctorEarningsDashboard({onBack}){
             <div style={{color:row.co,fontWeight:900,fontSize:15}}>{fmt(row.a)}</div>
           </div>
         ))}
-        <div style={{display:"flex",justifyContent:"space-between",paddingTop:10}}>
-          <div style={{color:"rgba(255,255,255,0.6)",fontWeight:800,fontSize:11}}>Consultation Total</div>
+        <div style={{display:"flex",justifyContent:"space-between",paddingTop:10,paddingBottom:8,borderTop:"1px solid rgba(255,255,255,0.06)",marginTop:2}}>
+          <div style={{color:"rgba(255,255,255,0.6)",fontWeight:800,fontSize:11}}>Consultation Total (Gross)</div>
           <div style={{color:"#fff",fontWeight:900,fontSize:15}}>{fmt(consult)}</div>
         </div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0"}}>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:10}}>− Platform Compensation ({PLATFORM_COMMISSION.doctorBooking.pct}%)</div>
+          <div style={{color:"#FF6B81",fontWeight:700,fontSize:11}}>−{fmt(Math.round(consult*PLATFORM_COMMISSION.doctorBooking.pct/100))}</div>
+        </div>
+        <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0",borderTop:"1px solid rgba(255,255,255,0.06)",marginTop:4}}>
+          <div style={{color:"#00C9A7",fontWeight:800,fontSize:11}}>You Receive ({100-PLATFORM_COMMISSION.doctorBooking.pct}%)</div>
+          <div style={{color:"#00C9A7",fontWeight:900,fontSize:15}}>{fmt(Math.round(consult*(100-PLATFORM_COMMISSION.doctorBooking.pct)/100))}</div>
+        </div>
       </div>
-      {/* Commission breakdown */}
+      {/* Compensation breakdown */}
       <div style={{background:"rgba(244,160,18,0.05)",border:"1px solid rgba(244,160,18,0.22)",borderRadius:14,padding:"13px 13px"}}>
-        <div style={{color:"rgba(244,160,18,0.8)",fontSize:9,fontWeight:800,letterSpacing:.8,marginBottom:11}}>COMMISSION & REFERRAL EARNINGS</div>
+        <div style={{color:"rgba(244,160,18,0.8)",fontSize:9,fontWeight:800,letterSpacing:.8,marginBottom:11}}>COMPENSATION & REFERRAL EARNINGS</div>
         {[
-          {ic:"💊",l:"Pharmacy Commission",a:d.pharma,co:"#2E7D32"},
-          {ic:"🔬",l:"Diagnostics Commission",a:d.diag,co:"#E65100"},
+          {ic:"💊",l:"Pharmacy Compensation",a:d.pharma,co:"#2E7D32"},
+          {ic:"🔬",l:"Diagnostics Compensation",a:d.diag,co:"#E65100"},
           {ic:"🩺",l:"Doctor Referral Incentive",a:d.docRef,co:"#0066CC"},
           {ic:"🏥",l:"Hospital Referral Incentive",a:d.hospRef,co:"#5E35B1"},
         ].map(row=>(
@@ -19084,7 +21495,7 @@ function DoctorEarningsDashboard({onBack}){
           </div>
         ))}
         <div style={{display:"flex",justifyContent:"space-between",paddingTop:10}}>
-          <div style={{color:"rgba(255,255,255,0.6)",fontWeight:800,fontSize:11}}>Commission Total</div>
+          <div style={{color:"rgba(255,255,255,0.6)",fontWeight:800,fontSize:11}}>Compensation Total</div>
           <div style={{color:"#F4A012",fontWeight:900,fontSize:15}}>{fmt(comm)}</div>
         </div>
       </div>
@@ -19128,14 +21539,37 @@ const EMR_DATA=[
    notes:"Add Pregabalin 75 for peripheral neuropathy. Ophthalmology referral."},
 ];
 
+const EMRMedInput=({ph,value,onChange})=>(
+  <input value={value} onChange={onChange} placeholder={ph}
+    style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,color:"#fff",fontSize:10,padding:"8px 10px",fontFamily:"Outfit,sans-serif",width:"100%",boxSizing:"border-box"}}/>
+);
 function DoctorEMRPanel({onBack}){
   const CLR="#0066CC";
   const [sel,setSel]=useState(null);
   const [noteText,setNoteText]=useState("");
   const [presForm,setPresForm]=useState({med:"",dose:"",freq:"",dur:""});
   const [prescriptions,setPrescriptions]=useState([]);
+  const [editingPresId,setEditingPresId]=useState(null);
   const [noteSaved,setNoteSaved]=useState(false);
   const [presSent,setPresSent]=useState(false);
+  const [vitalsHistory,setVitalsHistory]=useState([]);
+  const [editingVitals,setEditingVitals]=useState(false);
+  const [vForm,setVForm]=useState({bp:"",hr:"",spo2:"",temp:"",wt:"",rbs:""});
+
+  const openPatient=(p)=>{
+    setSel(p);setPrescriptions([]);setNoteText("");setEditingPresId(null);
+    setVitalsHistory([{date:new Date().toISOString().slice(0,10)+" (on file)",...p.vitals}]);
+    setEditingVitals(false);
+  };
+  const startEditVitals=()=>{
+    const latest=vitalsHistory[0]||sel.vitals;
+    setVForm({bp:latest.bp,hr:String(latest.hr),spo2:String(latest.spo2),temp:latest.temp,wt:latest.wt,rbs:latest.rbs});
+    setEditingVitals(true);
+  };
+  const saveVitals=()=>{
+    setVitalsHistory(prev=>[{date:new Date().toISOString().slice(0,10)+" "+new Date().toLocaleTimeString("en-IN",{hour:"2-digit",minute:"2-digit"}),bp:vForm.bp,hr:vForm.hr,spo2:vForm.spo2,temp:vForm.temp,wt:vForm.wt,rbs:vForm.rbs},...prev]);
+    setEditingVitals(false);
+  };
 
   const today="2026-03-14";
   const todayPats=EMR_DATA.filter(p=>p.apptDate===today);
@@ -19143,16 +21577,24 @@ function DoctorEMRPanel({onBack}){
 
   const addPres=()=>{
     if(!presForm.med.trim()) return;
-    setPrescriptions(prev=>[...prev,{...presForm,id:Date.now()}]);
+    if(editingPresId){
+      setPrescriptions(prev=>prev.map(x=>x.id===editingPresId?{...presForm,id:editingPresId}:x));
+      setEditingPresId(null);
+    }else{
+      setPrescriptions(prev=>[...prev,{...presForm,id:Date.now()}]);
+    }
     setPresForm({med:"",dose:"",freq:"",dur:""});
   };
-  const delPres=(id)=>setPrescriptions(p=>p.filter(x=>x.id!==id));
+  const startEditPres=(p)=>{setPresForm({med:p.med,dose:p.dose,freq:p.freq,dur:p.dur});setEditingPresId(p.id);};
+  const cancelEditPres=()=>{setPresForm({med:"",dose:"",freq:"",dur:""});setEditingPresId(null);};
+  const delPres=(id)=>{setPrescriptions(p=>p.filter(x=>x.id!==id));if(editingPresId===id) cancelEditPres();};
   const sendPrescription=()=>{
     if(prescriptions.length===0||!sel) return;
     E_PRESCRIPTIONS_DB.push({
       id:"rx"+Date.now(),patientName:sel.name,doctorName:"Dr. Suresh Mehta",
       date:new Date().toISOString().slice(0,10),
       medicines:prescriptions.map(({med,dose,freq,dur})=>({med,dose,freq,dur})),status:"active",
+      adminVisible:true,sharedWithPharmacy:false,sharedWithDiagnostics:false,
     });
     setPresSent(true);
     setTimeout(()=>setPresSent(false),3000);
@@ -19165,10 +21607,7 @@ function DoctorEMRPanel({onBack}){
       <div style={{color:"rgba(255,255,255,0.35)",fontSize:7.5,marginTop:1}}>{label}</div>
     </div>
   );
-  const INP=({ph,k})=>(
-    <input value={presForm[k]} onChange={e=>setPresForm(f=>({...f,[k]:e.target.value}))} placeholder={ph}
-      style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:8,color:"#fff",fontSize:10,padding:"8px 10px",fontFamily:"Outfit,sans-serif",width:"100%",boxSizing:"border-box"}}/>
-  );
+  const INP=EMRMedInput;
 
   if(sel) return(
     <div style={{display:"flex",flexDirection:"column",gap:11}}>
@@ -19189,14 +21628,50 @@ function DoctorEMRPanel({onBack}){
             </div>
           </div>
         </div>
-        <div style={{display:"flex",gap:5,flexWrap:"wrap"}}>
-          <VBadge label="BP" val={sel.vitals.bp} co="#FF4757"/>
-          <VBadge label="HR" val={sel.vitals.hr+" bpm"} co="#F4A012"/>
-          <VBadge label="SpO₂" val={sel.vitals.spo2+"%"} co="#00C9A7"/>
-          <VBadge label="Temp" val={sel.vitals.temp} co="#9C6FFF"/>
-          <VBadge label="Weight" val={sel.vitals.wt} co="#4A9DFF"/>
-          {sel.vitals.rbs!=="N/A"&&<VBadge label="RBS" val={sel.vitals.rbs} co="#F4A012"/>}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+          <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:800,letterSpacing:.7}}>LATEST VITALS · {vitalsHistory[0]?.date}</div>
+          <button onClick={startEditVitals} style={{background:"rgba(74,157,255,0.12)",border:"1px solid rgba(74,157,255,0.25)",borderRadius:7,padding:"3px 10px",color:"#4A9DFF",fontSize:9,fontWeight:700,cursor:"pointer"}}>✏️ Update Vitals</button>
         </div>
+        {editingVitals?(
+          <div style={{background:"rgba(255,255,255,0.03)",borderRadius:11,padding:11,marginBottom:9}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:8}}>
+              <EMRMedInput ph="BP (120/80)" value={vForm.bp} onChange={e=>setVForm(f=>({...f,bp:e.target.value}))}/>
+              <EMRMedInput ph="HR (bpm)" value={vForm.hr} onChange={e=>setVForm(f=>({...f,hr:e.target.value}))}/>
+              <EMRMedInput ph="SpO₂ (%)" value={vForm.spo2} onChange={e=>setVForm(f=>({...f,spo2:e.target.value}))}/>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,marginBottom:9}}>
+              <EMRMedInput ph="Temp (°F)" value={vForm.temp} onChange={e=>setVForm(f=>({...f,temp:e.target.value}))}/>
+              <EMRMedInput ph="Weight (kg)" value={vForm.wt} onChange={e=>setVForm(f=>({...f,wt:e.target.value}))}/>
+              <EMRMedInput ph="RBS" value={vForm.rbs} onChange={e=>setVForm(f=>({...f,rbs:e.target.value}))}/>
+            </div>
+            <div style={{display:"flex",gap:7}}>
+              <button onClick={()=>setEditingVitals(false)} style={{flex:1,background:"rgba(255,255,255,0.07)",border:"none",borderRadius:8,padding:"8px",color:"rgba(255,255,255,0.5)",fontSize:10.5,fontWeight:700,cursor:"pointer"}}>Cancel</button>
+              <button onClick={saveVitals} style={{flex:1,background:"linear-gradient(135deg,#00897B,#00C9A7)",border:"none",borderRadius:8,padding:"8px",color:"#fff",fontSize:10.5,fontWeight:800,cursor:"pointer"}}>💾 Save (new dated entry)</button>
+            </div>
+          </div>
+        ):(
+          <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:9}}>
+            <VBadge label="BP" val={vitalsHistory[0]?.bp} co="#FF4757"/>
+            <VBadge label="HR" val={vitalsHistory[0]?.hr+" bpm"} co="#F4A012"/>
+            <VBadge label="SpO₂" val={vitalsHistory[0]?.spo2+"%"} co="#00C9A7"/>
+            <VBadge label="Temp" val={vitalsHistory[0]?.temp} co="#9C6FFF"/>
+            <VBadge label="Weight" val={vitalsHistory[0]?.wt} co="#4A9DFF"/>
+            {vitalsHistory[0]?.rbs!=="N/A"&&<VBadge label="RBS" val={vitalsHistory[0]?.rbs} co="#F4A012"/>}
+          </div>
+        )}
+        {vitalsHistory.length>1&&(
+          <div style={{borderTop:"1px solid rgba(255,255,255,0.06)",paddingTop:8}}>
+            <div style={{color:"rgba(255,255,255,0.3)",fontSize:8,fontWeight:700,letterSpacing:.5,marginBottom:6}}>VITALS HISTORY ({vitalsHistory.length} entries)</div>
+            <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:110,overflowY:"auto"}}>
+              {vitalsHistory.slice(1).map((v,i)=>(
+                <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:9,color:"rgba(255,255,255,0.4)",background:"rgba(255,255,255,0.02)",borderRadius:6,padding:"5px 8px"}}>
+                  <span>{v.date}</span>
+                  <span>{v.bp} · {v.hr}bpm · {v.spo2}% · {v.temp} · {v.wt}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       {/* Clinical Info Cards */}
       {[
@@ -19234,24 +21709,28 @@ function DoctorEMRPanel({onBack}){
       <div style={{background:"rgba(0,201,167,0.05)",border:"1px solid rgba(0,201,167,0.22)",borderRadius:12,padding:"11px 13px"}}>
         <div style={{color:"rgba(0,201,167,0.75)",fontSize:9,fontWeight:800,letterSpacing:.7,marginBottom:9}}>PRESCRIPTION BUILDER</div>
         {prescriptions.map(p=>(
-          <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:"rgba(255,255,255,0.04)",borderRadius:8,padding:"7px 10px",marginBottom:7}}>
+          <div key={p.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",background:editingPresId===p.id?"rgba(244,160,18,0.1)":"rgba(255,255,255,0.04)",border:editingPresId===p.id?"1px solid rgba(244,160,18,0.3)":"1px solid transparent",borderRadius:8,padding:"7px 10px",marginBottom:7}}>
             <div style={{color:"#fff",fontSize:10.5}}><strong>{p.med}</strong> {p.dose} — {p.freq}{p.dur?` × ${p.dur}`:""}</div>
-            <button onClick={()=>delPres(p.id)} style={{background:"rgba(255,71,87,0.12)",border:"1px solid rgba(255,71,87,0.25)",borderRadius:6,padding:"3px 8px",color:"#FF4757",fontSize:9,fontWeight:700,cursor:"pointer"}}>✕</button>
+            <div style={{display:"flex",gap:5}}>
+              <button onClick={()=>startEditPres(p)} style={{background:"rgba(74,157,255,0.12)",border:"1px solid rgba(74,157,255,0.25)",borderRadius:6,padding:"3px 8px",color:"#4A9DFF",fontSize:9,fontWeight:700,cursor:"pointer"}}>✏️</button>
+              <button onClick={()=>delPres(p.id)} style={{background:"rgba(255,71,87,0.12)",border:"1px solid rgba(255,71,87,0.25)",borderRadius:6,padding:"3px 8px",color:"#FF4757",fontSize:9,fontWeight:700,cursor:"pointer"}}>✕</button>
+            </div>
           </div>
         ))}
         <div style={{display:"grid",gridTemplateColumns:"2fr 1fr",gap:6,marginBottom:7}}>
-          <INP ph="Medicine name" k="med"/>
-          <INP ph="Dose (mg)" k="dose"/>
+          <INP ph="Medicine name" value={presForm.med} onChange={e=>setPresForm(f=>({...f,med:e.target.value}))}/>
+          <INP ph="Dose (mg)" value={presForm.dose} onChange={e=>setPresForm(f=>({...f,dose:e.target.value}))}/>
         </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:10}}>
-          <INP ph="Frequency (OD/BD/TDS)" k="freq"/>
-          <INP ph="Duration (5 days)" k="dur"/>
+          <INP ph="Frequency (OD/BD/TDS)" value={presForm.freq} onChange={e=>setPresForm(f=>({...f,freq:e.target.value}))}/>
+          <INP ph="Duration (5 days)" value={presForm.dur} onChange={e=>setPresForm(f=>({...f,dur:e.target.value}))}/>
         </div>
         <div style={{display:"flex",gap:7}}>
-          <button onClick={addPres} style={{flex:1,background:"rgba(0,201,167,0.12)",border:"1px solid rgba(0,201,167,0.28)",borderRadius:9,padding:"9px",color:"#00C9A7",fontSize:10.5,fontWeight:800,cursor:"pointer"}}>➕ Add Medicine</button>
-          <button onClick={sendPrescription} disabled={prescriptions.length===0} style={{flex:1,background:presSent?"rgba(0,201,167,0.25)":"linear-gradient(135deg,#00897B,#00C9A7)",border:"none",borderRadius:9,padding:"9px",color:"#fff",fontSize:10.5,fontWeight:800,cursor:prescriptions.length===0?"not-allowed":"pointer",opacity:prescriptions.length===0?0.5:1}}>{presSent?"✅ Sent to Patient":"📤 Send to Patient"}</button>
+          <button onClick={addPres} style={{flex:1,background:editingPresId?"rgba(244,160,18,0.15)":"rgba(0,201,167,0.12)",border:editingPresId?"1px solid rgba(244,160,18,0.3)":"1px solid rgba(0,201,167,0.28)",borderRadius:9,padding:"9px",color:editingPresId?"#F4A012":"#00C9A7",fontSize:10.5,fontWeight:800,cursor:"pointer"}}>{editingPresId?"💾 Update Medicine":"➕ Add Medicine"}</button>
+          {editingPresId&&<button onClick={cancelEditPres} style={{background:"rgba(255,255,255,0.07)",border:"none",borderRadius:9,padding:"9px 13px",color:"rgba(255,255,255,0.5)",fontSize:10.5,fontWeight:700,cursor:"pointer"}}>Cancel</button>}
+          <button onClick={sendPrescription} disabled={prescriptions.length===0} style={{flex:1,background:presSent?"rgba(0,201,167,0.25)":"linear-gradient(135deg,#00897B,#00C9A7)",border:"none",borderRadius:9,padding:"9px",color:"#fff",fontSize:10.5,fontWeight:800,cursor:prescriptions.length===0?"not-allowed":"pointer",opacity:prescriptions.length===0?0.5:1}}>{presSent?"✅ Sent":"📤 Send to Patient"}</button>
         </div>
-        {presSent&&<div style={{color:"#00C9A7",fontSize:9.5,marginTop:7,textAlign:"center"}}>Prescription now visible in {sel.name}'s EMR — they can order directly from Pharmacy.</div>}
+        {presSent&&<div style={{color:"#00C9A7",fontSize:9.5,marginTop:7,textAlign:"center"}}>Shared with patient & STETHOSCO Admin — patient can choose to forward to Pharmacy or Diagnostics for the medicines/tests prescribed.</div>}
       </div>
     </div>
   );
@@ -19269,7 +21748,7 @@ function DoctorEMRPanel({onBack}){
       </div>
       <div style={{color:"rgba(255,255,255,0.35)",fontSize:9,fontWeight:700,letterSpacing:.8}}>TODAY — TAP TO VIEW & EDIT EMR</div>
       {todayPats.map(p=>(
-        <div key={p.id} onClick={()=>{setSel(p);setPrescriptions([]);setNoteText("");}}
+        <div key={p.id} onClick={()=>openPatient(p)}
           style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:14,padding:"12px 13px",cursor:"pointer",transition:"border .15s"}}
           onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(0,102,204,0.4)"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(255,255,255,0.07)"}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:7}}>
@@ -19289,7 +21768,7 @@ function DoctorEMRPanel({onBack}){
       {upcoming.length>0&&<>
         <div style={{color:"rgba(255,255,255,0.35)",fontSize:9,fontWeight:700,letterSpacing:.8,marginTop:4}}>UPCOMING</div>
         {upcoming.map(p=>(
-          <div key={p.id} onClick={()=>{setSel(p);setPrescriptions([]);setNoteText("");}}
+          <div key={p.id} onClick={()=>openPatient(p)}
             style={{background:"rgba(255,255,255,0.025)",border:"1px solid rgba(255,255,255,0.05)",borderRadius:14,padding:"12px 13px",cursor:"pointer"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:5}}>
               <div>
@@ -19320,6 +21799,22 @@ const PLAN_DATA={
   "Niva Bupa":{premium:"₹17,200/yr",sum:"₹5L",network:14000,cashless:true,copay:"0%",ncb:"100%",restore:"Unlimited",porting:"Yes",preExist:"3 yr"},
 };
 
+const StableObjInput=({label,k,ph,type="text",obj,setObj})=>(
+  <div style={{marginBottom:9}}>
+    <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>{label}</div>
+    <input type={type} value={obj[k]} onChange={e=>setObj(x=>({...x,[k]:e.target.value}))} placeholder={ph}
+      style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",fontFamily:"Outfit,sans-serif",boxSizing:"border-box"}}/>
+  </div>
+);
+const StableObjSelect=({label,k,opts,obj,setObj})=>(
+  <div style={{marginBottom:9}}>
+    <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>{label}</div>
+    <select value={obj[k]} onChange={e=>setObj(x=>({...x,[k]:e.target.value}))}
+      style={{width:"100%",background:"rgba(15,25,50,0.95)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",fontFamily:"Outfit,sans-serif"}}>
+      {opts.map(o=><option key={o}>{o}</option>)}
+    </select>
+  </div>
+);
 function InsuranceEmpanelmentPortal({tab,setTab}){
   const CLR="#1A6B8A";
   const [view,setView]=useState(tab==="hospital"?"hospForm":tab==="corporate"?"corpForm":tab==="individual"?"indForm":tab==="compare"?"compare":"home");
@@ -19346,22 +21841,8 @@ function InsuranceEmpanelmentPortal({tab,setTab}){
   const PL=({v})=><span style={{background:"rgba(244,160,18,0.1)",border:"1px solid rgba(244,160,18,0.28)",borderRadius:5,padding:"2px 8px",color:"#F4A012",fontSize:9,fontWeight:800}}>{v}</span>;
   const CARD=({children,style={}})=><div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:13,padding:"13px 13px",...style}}>{children}</div>;
   const SEC=({t})=><div style={{color:`${CLR}bb`,fontSize:9,fontWeight:800,letterSpacing:.8,marginBottom:9,marginTop:6}}>{t.toUpperCase()}</div>;
-  const SINP=({label,k,ph,type="text",obj,setObj})=>(
-    <div style={{marginBottom:9}}>
-      <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>{label}</div>
-      <input type={type} value={obj[k]} onChange={e=>setObj(x=>({...x,[k]:e.target.value}))} placeholder={ph}
-        style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",fontFamily:"Outfit,sans-serif",boxSizing:"border-box"}}/>
-    </div>
-  );
-  const SSEL=({label,k,opts,obj,setObj})=>(
-    <div style={{marginBottom:9}}>
-      <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>{label}</div>
-      <select value={obj[k]} onChange={e=>setObj(x=>({...x,[k]:e.target.value}))}
-        style={{width:"100%",background:"rgba(15,25,50,0.95)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",fontFamily:"Outfit,sans-serif"}}>
-        {opts.map(o=><option key={o}>{o}</option>)}
-      </select>
-    </div>
-  );
+  const SINP=StableObjInput;
+  const SSEL=StableObjSelect;
   const CHIPS=({list,sel,toggle,co=CLR})=>(
     <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:11}}>
       {list.map(i=>(
@@ -19385,7 +21866,7 @@ function InsuranceEmpanelmentPortal({tab,setTab}){
         <div style={{textAlign:"center",padding:"28px 12px"}}>
           <div style={{fontSize:44,marginBottom:10}}>✅</div>
           <div style={{color:"#fff",fontWeight:800,fontSize:19,fontFamily:"Playfair Display,serif",marginBottom:6}}>Empanelment Submitted!</div>
-          <div style={{color:"rgba(255,255,255,0.45)",fontSize:11,lineHeight:1.7,marginBottom:16}}>Hospital empanelment details submitted to Admin.<br/>You'll receive confirmation within 48 hours.</div>
+          <div style={{color:"rgba(255,255,255,0.45)",fontSize:11,lineHeight:1.7,marginBottom:16}}>Hospital empanelment details submitted to Admin.<br/>You will receive confirmation within 48 hours.</div>
           <button onClick={()=>{setSaved("");setView("home");setHospF({name:"",insurers:[],ehs:[]});setEditHospId(null);}} style={{width:"100%",background:`linear-gradient(135deg,${CLR},${CLR}aa)`,border:"none",borderRadius:10,padding:"11px",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer"}}>← Back to Portal</button>
         </div>
       ):(
@@ -19439,7 +21920,7 @@ function InsuranceEmpanelmentPortal({tab,setTab}){
             <SINP label="Total Employees *" k="emp" ph="e.g. 5000" type="number" obj={corpF} setObj={setCorpF}/>
           </div>
           <SEC t="Insurance Requirement"/>
-          <CHIPS list={["Group Health Insurance","Group Term Life Insurance","Group Personal Accident","Workmen's Compensation","Keyman Insurance","Directors & Officers Liability"]} sel={[corpF.req]} toggle={v=>setCorpF(f=>({...f,req:v}))} co={CLR}/>
+          <CHIPS list={["Group Health Insurance","Group Term Life Insurance","Group Personal Accident","Workmen Compensation","Keyman Insurance","Directors & Officers Liability"]} sel={[corpF.req]} toggle={v=>setCorpF(f=>({...f,req:v}))} co={CLR}/>
           <div style={{background:"rgba(26,107,138,0.07)",border:"1px solid rgba(26,107,138,0.2)",borderRadius:10,padding:"9px 11px",fontSize:9.5,color:"rgba(255,255,255,0.4)",lineHeight:1.65,marginBottom:12}}>
             📋 All company data is encrypted and confidential. Admin will reach out with tailored quotes within 24 hours.
           </div>
@@ -19627,6 +22108,20 @@ const AMB_TYPES_LIST=["Basic Life Support (BLS)","Advanced Life Support (ALS)","
 const AMB_EQUIP=["Oxygen Cylinder","Defibrillator (AED)","ECG Machine","Ventilator","Suction Machine","IV Infusion Pump","Pulse Oximeter","BP Monitor","Stretcher (Foldable)","Spine Board","CPAP / BiPAP","Neonatal Incubator","Emergency Drug Kit","Fire Extinguisher","GPS Tracker","CCTV Inside","Paramedic on Board","Doctor on Board","Nurse on Board","First Aid Kit"];
 const NEARBY_HOSPITALS=[{n:"Apollo Hospitals",d:"1.2 km",t:"Multi-Specialty",ph:"040-23607777"},{n:"KIMS Hospitals",d:"2.4 km",t:"Super-Specialty",ph:"040-44885000"},{n:"Yashoda Hospitals",d:"3.1 km",t:"Multi-Specialty",ph:"040-45674567"},{n:"NIMS",d:"4.8 km",t:"Govt. Medical College",ph:"040-23401013"},{n:"Care Hospitals",d:"5.2 km",t:"Multi-Specialty",ph:"040-30419999"}];
 
+const StableFormInput=({label,k,ph,type="text",form,F})=>(
+  <div style={{marginBottom:10}}>
+    <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>{label}</div>
+    <input type={type} value={form[k]} onChange={F(k)} placeholder={ph}
+      style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",fontFamily:"Outfit,sans-serif",boxSizing:"border-box"}}/>
+  </div>
+);
+const StableUrgInput=({label,k,ph,urgF,urgF2})=>(
+  <div style={{marginBottom:10}}>
+    <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>{label}</div>
+    <input value={urgF[k]} onChange={urgF2(k)} placeholder={ph}
+      style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",fontFamily:"Outfit,sans-serif",boxSizing:"border-box"}}/>
+  </div>
+);
 function CallAmbulancePortal({tab,setTab}){
   const CLR="#C62828";
   const [view,setView]=useState(tab==="emergency"?"emergency":tab==="register"?"register":tab==="nearby"?"nearby":"home");
@@ -19664,24 +22159,11 @@ function CallAmbulancePortal({tab,setTab}){
     setView("home");setForm({...blankAmb});setEditId(null);
   };
 
-  const SINP=({label,k,ph,type="text"})=>(
-    <div style={{marginBottom:10}}>
-      <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>{label}</div>
-      <input type={type} value={form[k]} onChange={F(k)} placeholder={ph}
-        style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",fontFamily:"Outfit,sans-serif",boxSizing:"border-box"}}/>
-    </div>
-  );
-  const UINP=({label,k,ph})=>(
-    <div style={{marginBottom:10}}>
-      <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>{label}</div>
-      <input value={urgF[k]} onChange={urgF2(k)} placeholder={ph}
-        style={{width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",fontFamily:"Outfit,sans-serif",boxSizing:"border-box"}}/>
-    </div>
-  );
   const CARD=({children,style={}})=><div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:13,padding:"13px 13px",...style}}>{children}</div>;
   const SEC=({t})=><div style={{color:`${CLR}99`,fontSize:9,fontWeight:800,letterSpacing:.8,marginBottom:9,marginTop:4}}>{t.toUpperCase()}</div>;
 
   if(view==="boost") return <BoostCenter vertical="ambulance" onBack={()=>setView("home")}/>;
+  if(view==="patientreferral") return <PatientReferralWidget onBack={()=>setView("home")} vertical="ambulance" roleColor="#FF4757"/>;
 
   if(view==="emergency") return(
     <div style={{display:"flex",flexDirection:"column",gap:12}}>
@@ -19720,9 +22202,9 @@ function CallAmbulancePortal({tab,setTab}){
             <div style={{color:"#fff",fontSize:13,lineHeight:1.6}}>For immediate life-threatening emergencies,<br/>dial <strong style={{color:"#FF4757",fontSize:18}}>108</strong> directly</div>
           </div>
           <CARD>
-            <UINP label="Patient / Caller Name *" k="name" ph="Your full name"/>
-            <UINP label="Your Mobile Number *" k="phone" ph="10-digit mobile"/>
-            <UINP label="Pickup Location / Address *" k="location" ph="Building, street, landmark, area, city"/>
+            <StableUrgInput label="Patient / Caller Name *" k="name" ph="Your full name" urgF={urgF} urgF2={urgF2}/>
+            <StableUrgInput label="Your Mobile Number *" k="phone" ph="10-digit mobile" urgF={urgF} urgF2={urgF2}/>
+            <StableUrgInput label="Pickup Location / Address *" k="location" ph="Building, street, landmark, area, city" urgF={urgF} urgF2={urgF2}/>
             <div style={{marginBottom:13}}>
               <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:6}}>Ambulance Type Needed</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
@@ -19806,10 +22288,10 @@ function CallAmbulancePortal({tab,setTab}){
       </div>
       <CARD>
         <SEC t="Vehicle & Organisation"/>
-        <SINP label="Vehicle Registration No. *" k="regNo" ph="e.g. TS-09-EY-4521"/>
-        <SINP label="Ambulance Name / Call Sign *" k="name" ph="e.g. MediRescue BLS Unit 1"/>
-        <SINP label="Operating Organisation *" k="org" ph="e.g. MediRescue EMS Pvt. Ltd."/>
-        <SINP label="Emergency Contact Phone *" k="phone" ph="040-XXXX-XXXX or +91 XXXXXXXXXX"/>
+        <StableFormInput label="Vehicle Registration No. *" k="regNo" ph="e.g. TS-09-EY-4521" form={form} F={F}/>
+        <StableFormInput label="Ambulance Name / Call Sign *" k="name" ph="e.g. MediRescue BLS Unit 1" form={form} F={F}/>
+        <StableFormInput label="Operating Organisation *" k="org" ph="e.g. MediRescue EMS Pvt. Ltd." form={form} F={F}/>
+        <StableFormInput label="Emergency Contact Phone *" k="phone" ph="040-XXXX-XXXX or +91 XXXXXXXXXX" form={form} F={F}/>
         <div style={{marginBottom:10}}>
           <div style={{color:"rgba(255,255,255,0.4)",fontSize:9,fontWeight:700,marginBottom:4}}>Ambulance Type *</div>
           <select value={form.type} onChange={e=>setForm(x=>({...x,type:e.target.value}))} style={{width:"100%",background:"rgba(15,25,50,0.95)",border:"1px solid rgba(255,255,255,0.12)",borderRadius:9,color:"#fff",fontSize:11,padding:"9px 12px",fontFamily:"Outfit,sans-serif"}}>
@@ -19818,16 +22300,16 @@ function CallAmbulancePortal({tab,setTab}){
         </div>
         <SEC t="Crew Details"/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          <SINP label="Driver Name" k="driver" ph="Full name"/>
-          <SINP label="Driver Mobile" k="driverPh" ph="10-digit"/>
+          <StableFormInput label="Driver Name" k="driver" ph="Full name" form={form} F={F}/>
+          <StableFormInput label="Driver Mobile" k="driverPh" ph="10-digit" form={form} F={F}/>
         </div>
-        <SINP label="Paramedic / Doctor on Board" k="params" ph="Name & qualification"/>
+        <StableFormInput label="Paramedic / Doctor on Board" k="params" ph="Name & qualification" form={form} F={F}/>
         <SEC t="GPS Location Details"/>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-          <SINP label="Latitude" k="lat" ph="e.g. 17.4065"/>
-          <SINP label="Longitude" k="lng" ph="e.g. 78.4772"/>
+          <StableFormInput label="Latitude" k="lat" ph="e.g. 17.4065" form={form} F={F}/>
+          <StableFormInput label="Longitude" k="lng" ph="e.g. 78.4772" form={form} F={F}/>
         </div>
-        <SINP label="Nearest Base Hospital" k="nearHosp" ph="e.g. Apollo Hospitals, Hyderabad"/>
+        <StableFormInput label="Nearest Base Hospital" k="nearHosp" ph="e.g. Apollo Hospitals, Hyderabad" form={form} F={F}/>
         <SEC t="Onboard Equipment & Facilities"/>
         <div style={{display:"flex",flexWrap:"wrap",gap:4,marginBottom:12}}>
           {AMB_EQUIP.map(eq=>(
@@ -19917,6 +22399,14 @@ function CallAmbulancePortal({tab,setTab}){
         <button onClick={()=>setView("nearby")} style={{background:"rgba(244,160,18,0.1)",border:"1.5px solid rgba(244,160,18,0.3)",borderRadius:12,padding:"12px",color:"#F4A012",fontSize:11,fontWeight:800,cursor:"pointer",fontFamily:"Outfit,sans-serif"}}>📍 Nearby Map</button>
       </div>
       <BoostBanner vertical="ambulance" onOpen={()=>setView("boost")}/>
+      <div onClick={()=>setView("patientreferral")} style={{background:"linear-gradient(135deg,rgba(255,71,87,0.2),rgba(255,71,87,0.08))",border:"1.5px solid rgba(255,71,87,0.35)",borderRadius:14,padding:"12px 14px",marginBottom:13,cursor:"pointer",display:"flex",alignItems:"center",gap:11}}>
+        <div style={{width:36,height:36,borderRadius:11,background:"rgba(255,71,87,0.22)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:17,flexShrink:0}}>🚑</div>
+        <div style={{flex:1,minWidth:0}}>
+          <div style={{color:"#fff",fontWeight:800,fontSize:12}}>Refer a Patient Case</div>
+          <div style={{color:"rgba(255,255,255,0.45)",fontSize:9.5,marginTop:1}}>Confirm hospital bed before dispatch · earn logistics fee</div>
+        </div>
+        <div style={{color:"#FF4757",fontSize:20,flexShrink:0}}>→</div>
+      </div>
       {/* Ambulance Aggregator — Fleet Filter */}
       <div style={{background:"rgba(198,40,40,0.06)",border:"1px solid rgba(198,40,40,0.2)",borderRadius:13,padding:"11px 13px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
@@ -20345,7 +22835,7 @@ function NeetPredictorPortal({tab,setTab}){
           </div>
         </div>
         <div style={{background:"rgba(156,39,176,0.06)",border:"1px solid rgba(156,39,176,0.2)",borderRadius:11,padding:"8px 12px",margin:"10px 0",fontSize:9.5,color:"rgba(255,255,255,0.5)",lineHeight:1.6}}>
-          🇮🇳 India has {NEET_NATIONAL_STATS.totalCollegesUG.toLocaleString()}+ medical colleges and {NEET_NATIONAL_STATS.totalSeatsUG.toLocaleString()}+ MBBS seats nationwide ({NEET_NATIONAL_STATS.asOf}). This directory tracks a curated, representative set of {directoryColleges.length} colleges with detailed seat/rank data for planning.
+          🇮🇳 India has {(level==="UG"?NEET_NATIONAL_STATS.totalCollegesUG:NEET_NATIONAL_STATS.totalCollegesPG).toLocaleString()}+ {level==="UG"?"medical (MBBS)":"PG medical (MD/MS/Diploma)"} colleges and {(level==="UG"?NEET_NATIONAL_STATS.totalSeatsUG:NEET_NATIONAL_STATS.totalSeatsPG).toLocaleString()}+ {level==="UG"?"MBBS":"PG"} seats nationwide, of which {(level==="UG"?NEET_NATIONAL_STATS.govtCollegesUG:NEET_NATIONAL_STATS.govtCollegesPG).toLocaleString()} colleges / {(level==="UG"?NEET_NATIONAL_STATS.govtSeatsUG:NEET_NATIONAL_STATS.govtSeatsPG).toLocaleString()}+ seats are government quota ({NEET_NATIONAL_STATS.asOf}). This directory tracks a curated, representative set of {directoryColleges.length} registered {level} colleges with detailed reservation-category and management-quota seat data for planning.
         </div>
         <div style={{display:"flex",gap:8,marginBottom:9}}>
           <span onClick={()=>setLevel("UG")} style={{flex:1,textAlign:"center",padding:"7px",borderRadius:10,border:`1.5px solid ${level==="UG"?"#9C27B0":"rgba(255,255,255,0.1)"}`,background:level==="UG"?"rgba(156,39,176,0.15)":"transparent",color:level==="UG"?"#CE93D8":"rgba(255,255,255,0.35)",fontSize:10,fontWeight:700,cursor:"pointer"}}>🎓 UG</span>
@@ -20418,6 +22908,9 @@ function NeetPredictorPortal({tab,setTab}){
           <div style={{color:"#CE93D8",fontWeight:900,fontSize:16,marginTop:2}}>{levelSummary.PG.colleges}</div>
           <div style={{color:"rgba(255,255,255,0.3)",fontSize:8}}>{levelSummary.PG.seats.toLocaleString()} total seats</div>
         </div>
+      </div>
+      <div style={{background:"rgba(156,39,176,0.05)",border:"1px solid rgba(156,39,176,0.15)",borderRadius:11,padding:"8px 12px",marginBottom:12,fontSize:9,color:"rgba(255,255,255,0.45)",lineHeight:1.6}}>
+        🇮🇳 Across India: <b style={{color:"#CE93D8"}}>{NEET_NATIONAL_STATS.totalCollegesUG.toLocaleString()}</b> UG (MBBS) colleges · <b style={{color:"#CE93D8"}}>{NEET_NATIONAL_STATS.totalSeatsUG.toLocaleString()}</b> UG seats &nbsp;|&nbsp; <b style={{color:"#CE93D8"}}>{NEET_NATIONAL_STATS.totalCollegesPG.toLocaleString()}</b> PG colleges · <b style={{color:"#CE93D8"}}>{NEET_NATIONAL_STATS.totalSeatsPG.toLocaleString()}</b> PG seats ({NEET_NATIONAL_STATS.asOf}). This app tracks {levelSummary.UG.colleges+levelSummary.PG.colleges} registered colleges in detail.
       </div>
 
       <MCard style={{marginBottom:12}}>
