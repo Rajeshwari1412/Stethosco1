@@ -2433,16 +2433,10 @@ export default function Stethosco() {
                   mobile={mobile}
                   setMobile={setMobile}
                   otpSent={otpSent}
+                  setOtpSent={setOtpSent}
                   otp={otp}
+                  setOtp={setOtp}
                   onOtp={handleOtp}
-                  onSend={() => mobile.length === 10 && setOtpSent(true)}
-                  onVerify={() => {
-                    if (registeredNumbers.includes(mobile)) {
-                      setScreen("roles");
-                    } else {
-                      setIsNewUser(true);
-                    }
-                  }}
                   newUser={isNewUser}
                   regName={regName}
                   setRegName={setRegName}
@@ -2454,6 +2448,13 @@ export default function Stethosco() {
                     setScreen("roles");
                   }}
                   onQuickDemo={handleQuickDemo}
+                  onLoginSuccess={() => {
+                    if (registeredNumbers.includes(mobile)) {
+                      setScreen("roles");
+                    } else {
+                      setIsNewUser(true);
+                    }
+                  }}
                 />
               )}
               {screen === "roles" && (
